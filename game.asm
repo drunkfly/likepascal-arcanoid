@@ -1,7 +1,7 @@
 
 					device 		zxspectrum48
 
-					include		"game.prg.asm"
+					include		"game.pas.asm"
 
 					savesna 	"game.sna", MAIN
 					SLDOPT 		COMMENT WPMEM, LOGPOINT, ASSERTION
