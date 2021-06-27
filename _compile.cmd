@@ -3,7 +3,7 @@
 cd %~dp0tools\zxlikepascal
 if errorlevel 1 exit /B 1
 
-zxlikepascal %~dp0game.pas "23900" -a
+zxlikepascal %~dp0game.pas "24576" -a
 if errorlevel 1 exit /B 1
 
 cd %~dp0

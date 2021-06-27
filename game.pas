@@ -189,6 +189,7 @@ begin
 end;
 
 begin
+	Asm(Init);
 	Reset;
 
 	while 1 do begin
@@ -216,6 +217,9 @@ begin
 		end;
 	end;
 end.
+
+INIT:       ei
+            ret
 
 HALT:		halt
 			ret
