@@ -26,6 +26,7 @@ var
 	x: Byte;
 	y: Byte;
 	colorCounter: Byte;
+	blockCounter: Byte;
 
 	key1: Byte;
 	key2: Byte;
@@ -35,8 +36,13 @@ var
 procedure DrawBall;
 begin
 	Color($47);
+	{
 	GotoXY(ballX, ballY);
 	Write('O');
+	}
+	WindowSet(ballX/2,ballY,1,1);
+	WindowGet;
+	SpritePutXor(BallSprite, $47, ballX/2, ballY);
 end;
 
 procedure DrawPaddle;
@@ -98,6 +104,16 @@ begin
 	Reset;
 end;
 
+procedure GameWin;
+begin
+	Color($67);
+	ClrScr;
+	repeat
+		ReadKey(key1, key2);
+	until key1 <> 0;
+	Reset;
+end;
+
 procedure MoveBall;
 begin
 	if ballY = (ScreenH-1) then begin
@@ -112,12 +128,18 @@ begin
 			GameOver;
 	end;
 
+	{
 	GotoXY(ballX, ballY);
 	Write(' ');
+	}
+	WindowSet(ballX/2,ballY,1,1);
+	WindowPut;
 
+	blockCounter := 0;
 	for i := 1 to BlockRowCount do begin
 		for j := 1 to BlockColCount do begin
 			if blocks[j, i] <> 0 then begin
+				blockCounter := blockCounter + 1;
 				x := (j - 1) * BlockW;
 				y := (i - 1) * BlockH;
 				if (ballX >= x) and (ballX < (x + BlockW)) and (ballY >= y) and (ballY < (y + BlockH)) then begin
@@ -154,6 +176,9 @@ begin
 	if ballY = 0 then ballDY := 1;
 
 	DrawBall;
+
+	if blockCounter = 0 then
+		GameWin;
 end
 
 procedure ClearPaddle;
@@ -194,3 +219,7 @@ end.
 
 HALT:		halt
 			ret
+
+BALLSPRITE:
+    DEFB 1
+    DEFB 0,0, 60,66,129,165,129,153,66,60
