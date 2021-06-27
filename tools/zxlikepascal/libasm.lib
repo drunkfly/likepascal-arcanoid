@@ -1,0 +1,3727 @@
+; ===== _all =====
+
+; константы
+
+virt_screen_high	equ	160				; старший байт смещения вирт.экрана
+addr_virt_screen	equ	57344				; адрес вирт.экрана
+table_mirror_high	equ	251				; старший байт адреса таблицы зеркальных байтов
+
+
+; ===== _mirror =====
+
+; формирование таблицы зеркального отображения байтов
+; вход: нет
+; выход: нет
+
+put_table_mirror	LD	H,table_mirror_high
+			LD	L,0
+			LD	B,0
+put_table_mirror_01	LD	A,L
+			dup 8
+			RLCA
+			RR	E
+			edup
+			LD	(HL),E
+			INC	L
+			DJNZ	put_table_mirror_01
+			RET
+
+
+; ===== _put_sprite_mirror_put =====
+
+; вывод зеркального спрайта относительно вертикальной оси с затиранием изображения на экране
+; вход: hl=адрес спрайта, de=координаты вывода на экране
+; выход: нет
+
+put_spr_mirror_put	push	hl
+			push	de
+
+			ld	b,(hl)
+			ld	c,0
+			ld	de,10
+			inc	hl
+			inc	hl
+
+put_spr_mirror_put_11	ld	a,(hl)
+			cp	c
+			jp	c,put_spr_mirror_put_12
+
+			ld	c,a
+
+put_spr_mirror_put_12	add	hl,de
+
+			djnz	put_spr_mirror_put_11
+
+			ld	a,c
+			ld	(mirror_max_x),a
+
+			pop	de
+			pop	hl
+
+			ld	a,(hl)
+
+put_spr_mirror_put_01	push	af
+
+			inc	hl
+
+			ld	a,(hl)
+			add	a,d
+
+; +++++ _flag_edge_screen_sprite +++++
+
+			CP	24
+			JP	NC,put_spr_mirror_put_03
+
+; ----- _flag_edge_screen_sprite -----
+
+			ld	b,a
+			inc	hl
+
+			ld	a,(mirror_max_x)
+			sub	(hl)
+			add	a,e
+
+; +++++ _flag_edge_screen_sprite +++++
+
+			CP	32
+			JP	NC,put_spr_mirror_put_04
+
+; ----- _flag_edge_screen_sprite -----
+
+			ld	c,a
+			inc	hl
+
+			PUSH	DE				; DE = координаты спрайта на экране
+								; HL = адрес нахождения в спрайте, DE = свободно
+
+; +++++ _flag_attr_sprite +++++
+
+			PUSH	BC				; BC = реальные координаты спрайта на экране
+
+			LD	A,B				; расчет адреса атрибутов знакоместа в DE
+			RRCA
+			RRCA
+			RRCA
+			LD	E,A
+			AND	31
+			OR	88
+			LD	D,A
+			LD	A,E
+			AND	252
+			OR	C
+			LD	E,A
+
+; +++++ _flag_virt_scr_sprite +++++
+
+			ld	a,virt_screen_high
+			add	a,d
+			ld	d,a
+
+; ----- _flag_virt_scr_sprite -----
+
+			POP     BC                              ; BC = реальные координаты спрайта на экране
+
+			ld	a,(attr_sprite)
+			ld	(de),a				; заносим атрибуты знакоместа на экран
+
+; ----- _flag_attr_sprite -----
+
+			LD      A,B				; расчет адреса первого байта знакоместа в DE
+			LD      D,A
+			RRCA
+			RRCA
+			RRCA
+			AND	A,224
+			ADD	A,C
+			LD	E,A
+			LD	A,D
+			AND	24
+			OR	64
+			LD	D,A				; DE = адрес вывода знакоместа на экране, HL = адрес изображения в спрайте
+
+
+; +++++ _flag_virt_scr_sprite +++++
+
+			ld	a,virt_screen_high
+			add	a,d
+			ld	d,a
+
+; ----- _flag_virt_scr_sprite -----
+
+			; вывод знакоместа (8 строк)
+
+			dup	7
+			ld	b,table_mirror_high
+			ld	c,(hl)
+			ld	a,(bc)
+			ld	(de),a
+			inc	hl
+			inc	d
+			edup
+
+			ld	b,table_mirror_high
+			ld	c,(hl)
+			ld	a,(bc)
+			ld	(de),a
+
+			pop	de
+put_spr_mirror_put_02	pop	af
+			dec	a
+			jp	nz,put_spr_mirror_put_01
+
+			ret
+
+; +++++ _flag_edge_screen_sprite +++++
+
+put_spr_mirror_put_03	inc	hl
+put_spr_mirror_put_04	ld	bc,8
+			add	hl,bc
+			jp	put_spr_mirror_put_02
+
+; ----- _flag_edge_screen_sprite -----
+
+
+
+; ===== _put_sprite_mirror_or =====
+
+; вывод зеркального спрайта относительно вертикальной оси по методу OR
+; вход: hl=адрес спрайта, de=координаты вывода на экране
+; выход: нет
+
+put_spr_mirror_or	push	hl
+			push	de
+
+			ld	b,(hl)
+			ld	c,0
+			ld	de,10
+			inc	hl
+			inc	hl
+
+put_spr_mirror_or_11	ld	a,(hl)
+			cp	c
+			jp	c,put_spr_mirror_or_12
+
+			ld	c,a
+
+put_spr_mirror_or_12	add	hl,de
+
+			djnz	put_spr_mirror_or_11
+
+			ld	a,c
+			ld	(mirror_max_x),a
+
+			pop	de
+			pop	hl
+
+			ld	a,(hl)
+
+put_spr_mirror_or_01	push	af
+
+			inc	hl
+
+			ld	a,(hl)
+			add	a,d
+
+; +++++ _flag_edge_screen_sprite +++++
+
+			CP	24
+			JP	NC,put_spr_mirror_or_03
+
+; ----- _flag_edge_screen_sprite -----
+
+			ld	b,a
+			inc	hl
+
+			ld	a,(mirror_max_x)
+			sub	(hl)
+			add	a,e
+
+; +++++ _flag_edge_screen_sprite +++++
+
+			CP	32
+			JP	NC,put_spr_mirror_or_04
+
+; ----- _flag_edge_screen_sprite -----
+
+			ld	c,a
+			inc	hl
+
+			PUSH	DE				; DE = координаты спрайта на экране
+								; HL = адрес нахождения в спрайте, DE = свободно
+
+; +++++ _flag_attr_sprite +++++
+
+			PUSH	BC				; BC = реальные координаты спрайта на экране
+
+			LD	A,B				; расчет адреса атрибутов знакоместа в DE
+			RRCA
+			RRCA
+			RRCA
+			LD	E,A
+			AND	31
+			OR	88
+			LD	D,A
+			LD	A,E
+			AND	252
+			OR	C
+			LD	E,A
+
+; +++++ _flag_virt_scr_sprite +++++
+
+			ld	a,virt_screen_high
+			add	a,d
+			ld	d,a
+
+; ----- _flag_virt_scr_sprite -----
+
+			POP     BC                              ; BC = реальные координаты спрайта на экране
+
+			ld	a,(attr_sprite)
+			ld	(de),a				; заносим атрибуты знакоместа на экран
+
+; ----- _flag_attr_sprite -----
+
+			LD      A,B				; расчет адреса первого байта знакоместа в DE
+			LD      D,A
+			RRCA
+			RRCA
+			RRCA
+			AND	A,224
+			ADD	A,C
+			LD	E,A
+			LD	A,D
+			AND	24
+			OR	64
+			LD	D,A				; DE = адрес вывода знакоместа на экране, HL = адрес изображения в спрайте
+
+
+; +++++ _flag_virt_scr_sprite +++++
+
+			ld	a,virt_screen_high
+			add	a,d
+			ld	d,a
+
+; ----- _flag_virt_scr_sprite -----
+
+			; вывод знакоместа (8 строк)
+
+			dup	7
+			ld	b,table_mirror_high
+			ld	c,(hl)
+			ld	a,(bc)
+			ld	c,a
+			ld	a,(de)
+			or	c
+			ld	(de),a
+			inc	hl
+			inc	d
+			edup
+
+			ld	b,table_mirror_high
+			ld	c,(hl)
+			ld	a,(bc)
+			ld	c,a
+			ld	a,(de)
+			or	c
+			ld	(de),a
+
+			pop	de
+put_spr_mirror_or_02	pop	af
+			dec	a
+			jp	nz,put_spr_mirror_or_01
+
+			ret
+
+; +++++ _flag_edge_screen_sprite +++++
+
+put_spr_mirror_or_03	inc	hl
+put_spr_mirror_or_04	ld	bc,8
+			add	hl,bc
+			jp	put_spr_mirror_or_02
+
+; ----- _flag_edge_screen_sprite -----
+
+
+
+; ===== _put_sprite_mirror_and =====
+
+; вывод зеркального спрайта относительно вертикальной оси по методу AND
+; вход: hl=адрес спрайта, de=координаты вывода на экране
+; выход: нет
+
+put_spr_mirror_and	push	hl
+			push	de
+
+			ld	b,(hl)
+			ld	c,0
+			ld	de,10
+			inc	hl
+			inc	hl
+
+put_spr_mirror_and_11	ld	a,(hl)
+			cp	c
+			jp	c,put_spr_mirror_and_12
+
+			ld	c,a
+
+put_spr_mirror_and_12	add	hl,de
+
+			djnz	put_spr_mirror_and_11
+
+			ld	a,c
+			ld	(mirror_max_x),a
+
+			pop	de
+			pop	hl
+
+			ld	a,(hl)
+
+put_spr_mirror_and_01	push	af
+
+			inc	hl
+
+			ld	a,(hl)
+			add	a,d
+
+; +++++ _flag_edge_screen_sprite +++++
+
+			CP	24
+			JP	NC,put_spr_mirror_and_03
+
+; ----- _flag_edge_screen_sprite -----
+
+			ld	b,a
+			inc	hl
+
+			ld	a,(mirror_max_x)
+			sub	(hl)
+			add	a,e
+
+; +++++ _flag_edge_screen_sprite +++++
+
+			CP	32
+			JP	NC,put_spr_mirror_and_04
+
+; ----- _flag_edge_screen_sprite -----
+
+			ld	c,a
+			inc	hl
+
+			PUSH	DE				; DE = координаты спрайта на экране
+								; HL = адрес нахождения в спрайте, DE = свободно
+
+; +++++ _flag_attr_sprite +++++
+
+			PUSH	BC				; BC = реальные координаты спрайта на экране
+
+			LD	A,B				; расчет адреса атрибутов знакоместа в DE
+			RRCA
+			RRCA
+			RRCA
+			LD	E,A
+			AND	31
+			OR	88
+			LD	D,A
+			LD	A,E
+			AND	252
+			OR	C
+			LD	E,A
+
+; +++++ _flag_virt_scr_sprite +++++
+
+			ld	a,virt_screen_high
+			add	a,d
+			ld	d,a
+
+; ----- _flag_virt_scr_sprite -----
+
+			POP     BC                              ; BC = реальные координаты спрайта на экране
+
+			ld	a,(attr_sprite)
+			ld	(de),a				; заносим атрибуты знакоместа на экран
+
+; ----- _flag_attr_sprite -----
+
+			LD      A,B				; расчет адреса первого байта знакоместа в DE
+			LD      D,A
+			RRCA
+			RRCA
+			RRCA
+			AND	A,224
+			ADD	A,C
+			LD	E,A
+			LD	A,D
+			AND	24
+			OR	64
+			LD	D,A				; DE = адрес вывода знакоместа на экране, HL = адрес изображения в спрайте
+
+
+; +++++ _flag_virt_scr_sprite +++++
+
+			ld	a,virt_screen_high
+			add	a,d
+			ld	d,a
+
+; ----- _flag_virt_scr_sprite -----
+
+			; вывод знакоместа (8 строк)
+
+			dup	7
+			ld	b,table_mirror_high
+			ld	c,(hl)
+			ld	a,(bc)
+			ld	c,a
+			ld	a,(de)
+			and	c
+			ld	(de),a
+			inc	hl
+			inc	d
+			edup
+
+			ld	b,table_mirror_high
+			ld	c,(hl)
+			ld	a,(bc)
+			ld	c,a
+			ld	a,(de)
+			and	c
+			ld	(de),a
+
+			pop	de
+put_spr_mirror_and_02	pop	af
+			dec	a
+			jp	nz,put_spr_mirror_and_01
+
+			ret
+
+; +++++ _flag_edge_screen_sprite +++++
+
+put_spr_mirror_and_03	inc	hl
+put_spr_mirror_and_04	ld	bc,8
+			add	hl,bc
+			jp	put_spr_mirror_and_02
+
+; ----- _flag_edge_screen_sprite -----
+
+
+
+; ===== _put_sprite_mirror_xor =====
+
+; вывод зеркального спрайта относительно вертикальной оси по методу XOR
+; вход: hl=адрес спрайта, de=координаты вывода на экране
+; выход: нет
+
+put_spr_mirror_xor	push	hl
+			push	de
+
+			ld	b,(hl)
+			ld	c,0
+			ld	de,10
+			inc	hl
+			inc	hl
+
+put_spr_mirror_xor_11	ld	a,(hl)
+			cp	c
+			jp	c,put_spr_mirror_xor_12
+
+			ld	c,a
+
+put_spr_mirror_xor_12	add	hl,de
+
+			djnz	put_spr_mirror_xor_11
+
+			ld	a,c
+			ld	(mirror_max_x),a
+
+			pop	de
+			pop	hl
+
+			ld	a,(hl)
+
+put_spr_mirror_xor_01	push	af
+
+			inc	hl
+
+			ld	a,(hl)
+			add	a,d
+
+; +++++ _flag_edge_screen_sprite +++++
+
+			CP	24
+			JP	NC,put_spr_mirror_xor_03
+
+; ----- _flag_edge_screen_sprite -----
+
+			ld	b,a
+			inc	hl
+
+			ld	a,(mirror_max_x)
+			sub	(hl)
+			add	a,e
+
+; +++++ _flag_edge_screen_sprite +++++
+
+			CP	32
+			JP	NC,put_spr_mirror_xor_04
+
+; ----- _flag_edge_screen_sprite -----
+
+			ld	c,a
+			inc	hl
+
+			PUSH	DE				; DE = координаты спрайта на экране
+								; HL = адрес нахождения в спрайте, DE = свободно
+
+; +++++ _flag_attr_sprite +++++
+
+			PUSH	BC				; BC = реальные координаты спрайта на экране
+
+			LD	A,B				; расчет адреса атрибутов знакоместа в DE
+			RRCA
+			RRCA
+			RRCA
+			LD	E,A
+			AND	31
+			OR	88
+			LD	D,A
+			LD	A,E
+			AND	252
+			OR	C
+			LD	E,A
+
+; +++++ _flag_virt_scr_sprite +++++
+
+			ld	a,virt_screen_high
+			add	a,d
+			ld	d,a
+
+; ----- _flag_virt_scr_sprite -----
+
+			POP     BC                              ; BC = реальные координаты спрайта на экране
+
+			ld	a,(attr_sprite)
+			ld	(de),a				; заносим атрибуты знакоместа на экран
+
+; ----- _flag_attr_sprite -----
+
+			LD      A,B				; расчет адреса первого байта знакоместа в DE
+			LD      D,A
+			RRCA
+			RRCA
+			RRCA
+			AND	A,224
+			ADD	A,C
+			LD	E,A
+			LD	A,D
+			AND	24
+			OR	64
+			LD	D,A				; DE = адрес вывода знакоместа на экране, HL = адрес изображения в спрайте
+
+
+; +++++ _flag_virt_scr_sprite +++++
+
+			ld	a,virt_screen_high
+			add	a,d
+			ld	d,a
+
+; ----- _flag_virt_scr_sprite -----
+
+			; вывод знакоместа (8 строк)
+
+			dup	7
+			ld	b,table_mirror_high
+			ld	c,(hl)
+			ld	a,(bc)
+			ld	c,a
+			ld	a,(de)
+			xor	c
+			ld	(de),a
+			inc	hl
+			inc	d
+			edup
+
+			ld	b,table_mirror_high
+			ld	c,(hl)
+			ld	a,(bc)
+			ld	c,a
+			ld	a,(de)
+			xor	c
+			ld	(de),a
+
+			pop	de
+put_spr_mirror_xor_02	pop	af
+			dec	a
+			jp	nz,put_spr_mirror_xor_01
+
+			ret
+
+; +++++ _flag_edge_screen_sprite +++++
+
+put_spr_mirror_xor_03	inc	hl
+put_spr_mirror_xor_04	ld	bc,8
+			add	hl,bc
+			jp	put_spr_mirror_xor_02
+
+; ----- _flag_edge_screen_sprite -----
+
+
+; ===== _virt_screen =====
+
+; копирование вирт.экрана на реальный
+; вход: нет
+; выход: нет
+
+put_virt	ld	a,54
+		LD      HL,addr_virt_screen
+		LD	DE,16384
+put_virt_01	dup	128
+		LDI
+		edup
+		dec	a
+		jp	nz,put_virt_01
+		RET
+
+
+; ===== _sound =====
+
+; звуковой эффект
+; вход: (sound_loop),(sound_freq),(sound_time)
+; выход: нет
+
+sound_effect
+
+	ld	a,(sound_loop)
+	ld	b,a
+	ld	de,(sound_freq)
+
+       LD    A,(23624)
+       AND   #38
+       RRA
+       RRA
+       RRA
+       LD    L,A
+       DI
+EXPL1  PUSH  BC
+       PUSH  DE
+EXPL2  PUSH  DE
+EXPL3  LD    B,E
+       DJNZ  $           ;задержка
+       LD    A,(BC)      ;в паре BC один из первых 256 адресов ПЗУ
+       AND   16
+       OR    L
+       OUT   (254),A
+       INC   C
+       DEC   D
+       JR    NZ,EXPL3
+       POP   DE
+; Изменение высоты шума (понижение среднего тона;
+;  если заменить на DEC E, тон будет наоборот повышаться)
+       INC   E
+       DEC   D
+       JR    NZ,EXPL2
+       POP   DE
+       POP   BC
+       DJNZ  EXPL1       ;повторение всего эффекта
+       EI
+       RET
+
+
+; ===== _map_2x2 =====
+
+; вывод участка карты на экран клетками 2x2 знакомест
+; вход: параметры карты
+; выход: нет
+
+map_put_2x2		ld	a,(map_ymax_array)
+			ld	c,a
+			ld	b,0
+			ld	a,(map_x)
+			dec	a
+			ld	e,a
+			ld	d,0
+			call	mul
+
+			ld	a,(map_y)
+			dec	a
+			ld	e,a
+			ld	d,0
+			add	hl,de
+
+			ld	de,(map_addr_array)
+			add	hl,de
+
+			ld	(map_addr_curr),hl
+
+			ld	hl,(map_xscr)
+			ld	(map_xscr_curr),hl
+
+			ld	a,(map_height_scr)
+			ld	b,a
+
+map_put_01		push	bc
+
+			ld	a,(map_width_scr)
+			ld	b,a
+
+map_put_02		push	bc
+
+			ld	hl,(map_addr_curr)
+
+			ld	a,(hl)
+			and	a
+			ld	hl,(map_addr_sprites)
+			jp	z,map_put_04
+			ld	b,a
+
+			ld	de,32
+; +++++ _flag_attr_map +++++
+			ld	de,36
+; ----- _flag_attr_map -----
+
+
+map_put_03		add	hl,de
+			djnz	map_put_03
+
+map_put_04		call	map_put_10
+
+			ld	hl,(map_addr_curr)
+			inc	hl
+			ld	(map_addr_curr),hl
+
+			ld	hl,map_xscr_curr
+			inc	(hl)
+			inc	(hl)
+
+			pop	bc
+			djnz	map_put_02
+
+			ld	hl,(map_addr_curr)
+			ld	a,(map_ymax_array)
+			ld	e,a
+			ld	d,0
+			add	hl,de
+
+			ld	a,(map_width_scr)
+			ld	e,a
+			and	a
+			sbc	hl,de
+
+			ld	(map_addr_curr),hl
+
+			ld	hl,map_yscr_curr
+			inc	(hl)
+			inc	(hl)
+
+			ld	a,(map_xscr)
+			ld	(map_xscr_curr),a
+
+			pop	bc
+			djnz	map_put_01
+
+			ret
+
+
+map_put_10		ex	de,hl
+
+; +++++ _flag_attr_map +++++
+
+			ld	bc,(map_xscr_curr)
+
+			LD	A,B
+			RRCA
+			RRCA
+			RRCA
+			LD	L,A
+			AND	31
+			OR	88
+			LD	H,A
+			LD	A,L
+			AND	252
+			OR	C
+			LD	L,A
+
+; +++++ _flag_virt_scr_map +++++
+
+			ld	bc,addr_virt_screen-16384
+			add	hl,bc
+
+; ----- _flag_virt_scr_map -----
+
+			ld	a,(de)
+			ld	(hl),a
+			inc	de
+			inc	hl
+
+			ld	a,(de)
+			ld	(hl),a
+			inc	de
+			ld	bc,31
+			add	hl,bc
+
+			ld	a,(de)
+			ld	(hl),a
+			inc	de
+			inc	hl
+
+			ld	a,(de)
+			ld	(hl),a
+			inc	de
+
+; ----- _flag_attr_map -----
+
+			ld	bc,(map_xscr_curr)
+
+			LD      A,B
+			LD      H,A
+			RRCA
+			RRCA
+			RRCA
+			AND	A,224
+			ADD	A,C
+			LD	L,A
+			LD	A,H
+			AND	24
+			OR	64
+			LD	H,A
+
+; +++++ _flag_virt_scr_map +++++
+
+			ld	bc,addr_virt_screen-16384
+			add	hl,bc
+
+; ----- _flag_virt_scr_map -----
+
+			dup	7
+			ld	a,(de)
+			ld	(hl),a
+			inc	de
+			inc	h
+			edup
+
+			ld	a,(de)
+			ld	(hl),a
+			inc	de
+
+			ld	bc,#6ff
+			and	a
+			sbc	hl,bc
+
+			dup	7
+			ld	a,(de)
+			ld	(hl),a
+			inc	de
+			inc	h
+			edup
+
+			ld	a,(de)
+			ld	(hl),a
+			inc	de
+
+			ld	bc,#6e1
+			and	a
+			sbc	hl,bc
+
+			dup	7
+			ld	a,(de)
+			ld	(hl),a
+			inc	de
+			inc	h
+			edup
+
+			ld	a,(de)
+			ld	(hl),a
+			inc	de
+
+			ld	bc,#6ff
+			and	a
+			sbc	hl,bc
+
+			dup	7
+			ld	a,(de)
+			ld	(hl),a
+			inc	de
+			inc	h
+			edup
+
+			ld	a,(de)
+			ld	(hl),a
+
+			ret
+
+
+; ===== _map_1x1 =====
+
+; вывод участка карты на экран клетками 1x1 знакомест
+; вход: параметры карты
+; выход: нет
+
+map_put_1x1		ld	a,(map_ymax_array)
+			ld	c,a
+			ld	b,0
+			ld	a,(map_x)
+			dec	a
+			ld	e,a
+			ld	d,0
+			call	mul
+
+			ld	a,(map_y)
+			dec	a
+			ld	e,a
+			ld	d,0
+			add	hl,de
+
+			ld	de,(map_addr_array)
+			add	hl,de
+
+			ld	(map_addr_curr),hl
+
+			ld	hl,(map_xscr)
+			ld	(map_xscr_curr),hl
+
+			ld	a,(map_height_scr)
+			ld	b,a
+
+map_put_1x1_01		push	bc
+
+			ld	a,(map_width_scr)
+			ld	b,a
+
+map_put_1x1_02		push	bc
+
+			ld	hl,(map_addr_curr)
+
+			ld	a,(hl)
+			and	a
+			ld	hl,(map_addr_sprites)
+			jp	z,map_put_1x1_04
+			ld	b,a
+
+			ld	de,8
+; +++++ _flag_attr_map +++++
+			ld	de,9
+; ----- _flag_attr_map -----
+
+
+map_put_1x1_03		add	hl,de
+			djnz	map_put_1x1_03
+
+map_put_1x1_04		call	map_put_1x1_10
+
+			ld	hl,(map_addr_curr)
+			inc	hl
+			ld	(map_addr_curr),hl
+
+			ld	hl,map_xscr_curr
+			inc	(hl)
+			;inc	(hl)
+
+			pop	bc
+			djnz	map_put_1x1_02
+
+			ld	hl,(map_addr_curr)
+			ld	a,(map_ymax_array)
+			ld	e,a
+			ld	d,0
+			add	hl,de
+
+			ld	a,(map_width_scr)
+			ld	e,a
+			and	a
+			sbc	hl,de
+
+			ld	(map_addr_curr),hl
+
+			ld	hl,map_yscr_curr
+			inc	(hl)
+			;inc	(hl)
+
+			ld	a,(map_xscr)
+			ld	(map_xscr_curr),a
+
+			pop	bc
+			djnz	map_put_1x1_01
+
+			ret
+
+
+map_put_1x1_10		ex	de,hl
+
+; +++++ _flag_attr_map +++++
+
+			ld	bc,(map_xscr_curr)
+
+			LD	A,B
+			RRCA
+			RRCA
+			RRCA
+			LD	L,A
+			AND	31
+			OR	88
+			LD	H,A
+			LD	A,L
+			AND	252
+			OR	C
+			LD	L,A
+
+; +++++ _flag_virt_scr_map +++++
+
+			ld	bc,addr_virt_screen-16384
+			add	hl,bc
+
+; ----- _flag_virt_scr_map -----
+
+			ld	a,(de)
+			ld	(hl),a
+			inc	de
+
+; ----- _flag_attr_map -----
+
+			ld	bc,(map_xscr_curr)
+
+			LD      A,B
+			LD      H,A
+			RRCA
+			RRCA
+			RRCA
+			AND	A,224
+			ADD	A,C
+			LD	L,A
+			LD	A,H
+			AND	24
+			OR	64
+			LD	H,A
+
+; +++++ _flag_virt_scr_map +++++
+
+			ld	bc,addr_virt_screen-16384
+			add	hl,bc
+
+; ----- _flag_virt_scr_map -----
+
+			dup	7
+			ld	a,(de)
+			ld	(hl),a
+			inc	de
+			inc	h
+			edup
+
+			ld	a,(de)
+			ld	(hl),a
+
+			ret
+
+
+; ===== _map_search =====
+
+; поиск элемента на участке карты
+; вход: параметры карты
+; выход: (map_x_elem),(map_y_elem),(map_value_elem)
+
+map_search		xor	a
+			ld	(map_value_elem),a
+			ld	(map_x_elem),a
+			ld	(map_y_elem),a
+			ld	a,255
+			ld	(map_distance_curr),a
+
+			ld	hl,table_condition
+			ld	de,(map_condition)
+			add	hl,de
+			ld	a,(hl)
+			ld	(map_search_06_a),a
+
+			ld	a,(map_ymax_array)
+			ld	c,a
+			ld	b,0
+			ld	a,(map_x)
+			dec	a
+			ld	e,a
+			ld	d,0
+			call	mul
+
+			ld	a,(map_y)
+			dec	a
+			ld	e,a
+			ld	d,0
+			add	hl,de
+
+			ld	de,(map_addr_array)
+			add	hl,de
+
+			ld	(map_addr_source),hl
+
+			ld	a,(map_distance_elem)
+			ld	c,a
+
+			ld	a,(map_y)
+			sub	c
+			cp	1
+			jp	nc,map_search_01
+			ld	a,1
+map_search_01		ld	(map_xmin),a
+
+			ld	a,(map_y)
+			add	a,c
+			ld	b,a
+			ld	a,(map_ymax_array)
+			cp	b
+			jp	c,map_search_02
+			ld	a,b
+map_search_02		ld	(map_xmax),a
+
+			ld	a,(map_x)
+			sub	c
+			cp	1
+			jp	nc,map_search_03
+			ld	a,1
+map_search_03		ld	(map_ymin),a
+
+			ld	a,(map_x)
+			add	a,c
+			ld	b,a
+			ld	a,(map_xmax_array)
+			cp	b
+			jp	c,map_search_04
+			ld	a,b
+map_search_04		ld	(map_ymax),a
+
+			ld	a,(map_xmax)
+			ld	hl,map_xmin
+			sub	(hl)
+			inc	a
+			ld	(map_xlen),a
+
+			ld	a,(map_ymax)
+			ld	hl,map_ymin
+			sub	(hl)
+			inc	a
+			ld	(map_ylen),a
+
+
+			ld	a,(map_ymax_array)
+			ld	c,a
+			ld	b,0
+			ld	a,(map_ymin)
+			dec	a
+			ld	e,a
+			ld	d,0
+			call	mul
+
+			ld	a,(map_xmin)
+			dec	a
+			ld	e,a
+			ld	d,0
+			add	hl,de
+
+			ld	de,(map_addr_array)
+			add	hl,de
+
+			ld	(map_addr_curr),hl
+
+			ld	hl,(map_xmin)
+			ld	(map_xscr_curr),hl
+
+			ld	a,(map_ylen)
+			ld	b,a
+
+map_search_05		push	bc
+
+			ld	a,(map_xlen)
+			ld	b,a
+
+map_search_06		push	bc
+
+			ld	hl,map_id_elem
+			ld	de,(map_addr_curr)
+			ld	a,(de)
+			cp	(hl)
+map_search_06_a		call	z,map_search_07
+
+			ld	hl,(map_addr_curr)
+			inc	hl
+			ld	(map_addr_curr),hl
+
+			ld	hl,map_xscr_curr
+			inc	(hl)
+
+			pop	bc
+			djnz	map_search_06
+
+			ld	hl,(map_addr_curr)
+			ld	a,(map_ymax_array)
+			ld	e,a
+			ld	d,0
+			add	hl,de
+
+			ld	a,(map_xlen)
+			ld	e,a
+			and	a
+			sbc	hl,de
+
+			ld	(map_addr_curr),hl
+
+			ld	hl,map_yscr_curr
+			inc	(hl)
+
+			ld	a,(map_xmin)
+			ld	(map_xscr_curr),a
+
+			pop	bc
+			djnz	map_search_05
+
+			ret
+
+
+map_search_07		ld	hl,(map_addr_source)
+			and	a
+			sbc	hl,de
+			ret	z
+
+			ld	a,(map_value_elem)
+			inc	a
+			ld	(map_value_elem),a
+			cp	1
+			jp	z,map_search_10
+
+			ld	a,(map_xscr_curr)
+			ld	hl,map_y
+			sub	(hl)
+			jp	nc,map_search_08
+			neg
+
+map_search_08		ld	c,a
+			ld	a,(map_yscr_curr)
+			ld	hl,map_x
+			sub	(hl)
+			jp	nc,map_search_09
+			neg
+
+map_search_09		add	a,c
+			ld	hl,map_distance_curr
+			cp	(hl)
+			ret	nc
+
+			ld	(map_distance_curr),a
+
+map_search_10		ld	hl,(map_xscr_curr)
+			ld	(map_x_elem),hl
+
+			ret
+			
+
+; ===== _screen_thaw ====
+
+; процедура растворения экрана
+; вход: нет
+; выход: нет
+
+scr_thaw   LD    B,8         ;экран очищается за 8 циклов
+       LD    DE,0        ;адрес начала кодов ПЗУ
+THAW1  LD    HL,#4000    ;адрес начала экранной области
+       PUSH  DE
+THAW2  LD    A,(DE)      ;берем «случайный» байт из ПЗУ
+       AND   (HL)        ;объединяем с байтом из видеобуфера
+       LD    (HL),A      ;помещаем обратно в видеобуфер
+       INC   HL          ;переходим к следующим адресам
+       INC   DE
+       LD    A,H         ;проверяем, нужно ли повторять цикл
+       CP    #58         ;если прошли еще не весь видеобуфер
+                         ; (#5800 - адрес начала области атрибутов)
+       JR    NZ,THAW2    ; то повторяем
+       halt
+       halt
+       halt
+       POP   DE
+       LD    HL,100
+       ADD   HL,DE       ;увеличиваем адрес в ПЗУ на 100
+       EX    DE,HL       ;меняем HL на DE
+       DJNZ  THAW1       ;повторяем цикл
+
+	; окончательно очищаем экран
+
+	ld	hl,16384
+	ld	(hl),0
+	ld	de,16385
+	ld	bc,6143
+	ldir
+
+       RET
+
+
+; ===== _readkey =====
+
+; чтение до двух одновременно нажатых клавиш
+; вход: нет
+; выход: (code_key_1),(code_key_2) = коды нажатых клавиш (если не нажата, то 0)
+
+readkey		ld	de,0
+		ld	(code_key_1),de
+
+
+		ld	bc,32766
+		call	readkey_10
+		ld	bc,49150
+		call	readkey_10
+		ld	bc,57342
+		call	readkey_10
+		ld	bc,61438
+		call	readkey_10
+		ld	bc,63486
+		call	readkey_10
+		ld	bc,64510
+		call	readkey_10
+		ld	bc,65022
+		call	readkey_10
+		ld	bc,65278
+		call	readkey_10
+		ret
+
+readkey_10	in	a,(c)
+
+		rrca
+		call	nc,readkey_20
+		inc	e
+
+		rrca
+		call	nc,readkey_20
+		inc	e
+
+		rrca
+		call	nc,readkey_20
+		inc	e
+
+		rrca
+		call	nc,readkey_20
+		inc	e
+
+		rrca
+		call	nc,readkey_20
+		inc	e
+
+		ret
+
+readkey_20	push	af
+
+		ld	bc,code_key_1
+		ld	a,(bc)
+		and	a
+		jp	z,readkey_21
+		inc	bc
+
+readkey_21	ld	hl,table_code_key
+		add	hl,de
+		ld	a,(hl)
+		ld	(bc),a
+
+		pop	af
+
+		ret
+
+
+
+; ===== _random =====
+
+; генератор случайного числа
+; вход: hl=максимальное число
+; выход: hl=случайное число
+
+random			inc	hl
+			push	hl
+
+			ld	d,0
+			ld	bc,(rnd)
+			ld	h,c
+			ld	l,#fd
+			ld	a,b
+			or	a
+			sbc	hl,bc
+			sbc	a,d
+			sbc	hl,bc
+			sbc	a,d
+			ld	e,a
+			sbc	hl,de
+			jp	nc,random_01
+			inc	hl
+random_01		ld	(rnd),hl
+
+			ex	de,hl
+			pop	bc
+			call	mul_01
+
+			ex	de,hl
+
+			ret
+
+
+
+; ===== _put_sprite_put =====
+
+; вывод произвольного спрайта с атрибутами с затиранием изображения на экране
+; вход: HL=адрес спрайта, DE=координаты вывода на экране
+; выход: нет
+
+put_spr_put	LD	B,(HL)
+
+put_spr_put_01	PUSH	BC				; B = количество знакомест в спрайте
+
+		INC	HL
+		LD	A,(HL)
+		ADD	A,D
+
+; +++++ _flag_edge_screen_sprite +++++
+
+		CP	24
+		JP	NC,put_spr_put_03
+
+; ----- _flag_edge_screen_sprite -----
+
+		LD	B,A
+
+		INC	HL
+		LD	A,(HL)
+		ADD	A,E
+
+; +++++ _flag_edge_screen_sprite +++++
+
+		CP	32
+		JP	NC,put_spr_put_04
+
+; ----- _flag_edge_screen_sprite -----
+
+		LD	C,A
+
+		INC	HL
+		PUSH	DE				; DE = координаты спрайта на экране
+							; HL = адрес нахождения в спрайте, DE = свободно
+
+; +++++ _flag_attr_sprite +++++
+
+		PUSH	BC				; BC = реальные координаты спрайта на экране
+
+                LD	A,B				; расчет адреса атрибутов знакоместа в DE
+                RRCA
+                RRCA
+                RRCA
+                LD	E,A
+                AND	31
+                OR	88
+                LD	D,A
+                LD	A,E
+                AND	252
+                OR	C
+                LD	E,A
+
+; +++++ _flag_virt_scr_sprite +++++
+
+		ld	a,virt_screen_high
+		add	a,d
+		ld	d,a
+
+; ----- _flag_virt_scr_sprite -----
+
+                POP     BC                              ; BC = реальные координаты спрайта на экране
+
+		ld	a,(attr_sprite)
+		ld	(de),a				; заносим атрибуты знакоместа на экран
+
+; ----- _flag_attr_sprite -----
+
+                LD      A,B				; расчет адреса первого байта знакоместа в DE
+                LD      D,A
+                RRCA
+                RRCA
+                RRCA
+                AND	A,224
+		ADD	A,C
+                LD	E,A
+                LD	A,D
+                AND	24
+                OR	64
+                LD	D,A				; DE = адрес вывода знакоместа на экране, HL = адрес изображения в спрайте
+
+; +++++ _flag_virt_scr_sprite +++++
+
+		ld	a,virt_screen_high
+		add	a,d
+		ld	d,a
+
+; ----- _flag_virt_scr_sprite -----
+
+		; вывод знакоместа (8 строк)
+
+		dup	7
+		LD	A,(HL)
+		LD	(DE),A				; вывели байт спрайта
+		INC     HL
+                INC     D
+		edup
+
+		LD	A,(HL)
+		LD	(DE),A				; вывели байт спрайта
+
+		POP	DE				; HL = адрес нахождения в спрайте, DE = координаты спрайта на экране
+put_spr_put_02	POP	BC				; B = цикл по количеству знакомест в спрайте
+		DJNZ	put_spr_put_01
+		RET
+
+; +++++ _flag_edge_screen_sprite +++++
+
+put_spr_put_03	inc	hl
+put_spr_put_04	ld	bc,8
+		add	hl,bc
+		jp	put_spr_put_02
+
+; ----- _flag_edge_screen_sprite -----
+
+
+
+
+
+; ===== _put_sprite_or =====
+
+; вывод произвольного спрайта с атрибутами по методу OR
+; вход: HL=адрес спрайта, DE=координаты вывода на экране
+; выход: нет
+
+put_spr_or	LD	B,(HL)
+
+put_spr_or_01	PUSH	BC				; B = количество знакомест в спрайте
+
+		INC	HL
+		LD	A,(HL)
+		ADD	A,D
+
+; +++++ _flag_edge_screen_sprite +++++
+
+		CP	24
+		JP	NC,put_spr_or_03
+
+; ----- _flag_edge_screen_sprite -----
+
+		LD	B,A
+
+		INC	HL
+		LD	A,(HL)
+		ADD	A,E
+
+; +++++ _flag_edge_screen_sprite +++++
+
+		CP	32
+		JP	NC,put_spr_or_04
+
+; ----- _flag_edge_screen_sprite -----
+
+		LD	C,A
+
+		INC	HL
+		PUSH	DE				; DE = координаты спрайта на экране
+							; HL = адрес нахождения в спрайте, DE = свободно
+
+; +++++ _flag_attr_sprite +++++
+
+		PUSH	BC				; BC = реальные координаты спрайта на экране
+
+                LD	A,B				; расчет адреса атрибутов знакоместа в DE
+                RRCA
+                RRCA
+                RRCA
+                LD	E,A
+                AND	31
+                OR	88
+                LD	D,A
+                LD	A,E
+                AND	252
+                OR	C
+                LD	E,A
+
+; +++++ _flag_virt_scr_sprite +++++
+
+		ld	a,virt_screen_high
+		add	a,d
+		ld	d,a
+
+; ----- _flag_virt_scr_sprite -----
+
+                POP     BC                              ; BC = реальные координаты спрайта на экране
+
+		ld	a,(attr_sprite)
+		ld	(de),a				; заносим атрибуты знакоместа на экран
+
+; ----- _flag_attr_sprite -----
+
+                LD      A,B				; расчет адреса первого байта знакоместа в DE
+                LD      D,A
+                RRCA
+                RRCA
+                RRCA
+                AND	A,224
+		ADD	A,C
+                LD	E,A
+                LD	A,D
+                AND	24
+                OR	64
+                LD	D,A				; DE = адрес вывода знакоместа на экране, HL = адрес изображения в спрайте
+
+; +++++ _flag_virt_scr_sprite +++++
+
+		ld	a,virt_screen_high
+		add	a,d
+		ld	d,a
+
+; ----- _flag_virt_scr_sprite -----
+
+		; вывод знакоместа (8 строк)
+
+		dup	7
+		LD	A,(DE)
+		OR	(HL)
+		LD	(DE),A				; вывели байт спрайта
+		INC     HL
+                INC     D
+		edup
+
+		LD	A,(DE)
+		OR	(HL)
+		LD	(DE),A				; вывели байт спрайта
+
+		POP	DE				; HL = адрес нахождения в спрайте, DE = координаты спрайта на экране
+put_spr_or_02	POP	BC				; B = цикл по количеству знакомест в спрайте
+		DJNZ	put_spr_or_01
+		RET
+
+; +++++ _flag_edge_screen_sprite +++++
+
+put_spr_or_03	inc	hl
+put_spr_or_04	ld	bc,8
+		add	hl,bc
+		jp	put_spr_or_02
+
+; ----- _flag_edge_screen_sprite -----
+
+
+
+
+; ===== _put_sprite_and =====
+
+; вывод произвольного спрайта с атрибутами по методу AND
+; вход: HL=адрес спрайта, DE=координаты вывода на экране
+; выход: нет
+
+put_spr_and	LD	B,(HL)
+
+put_spr_and_01	PUSH	BC				; B = количество знакомест в спрайте
+
+		INC	HL
+		LD	A,(HL)
+		ADD	A,D
+
+; +++++ _flag_edge_screen_sprite +++++
+
+		CP	24
+		JP	NC,put_spr_and_03
+
+; ----- _flag_edge_screen_sprite -----
+
+		LD	B,A
+
+		INC	HL
+		LD	A,(HL)
+		ADD	A,E
+
+; +++++ _flag_edge_screen_sprite +++++
+
+		CP	32
+		JP	NC,put_spr_and_04
+
+; ----- _flag_edge_screen_sprite -----
+
+		LD	C,A
+
+		INC	HL
+		PUSH	DE				; DE = координаты спрайта на экране
+							; HL = адрес нахождения в спрайте, DE = свободно
+
+; +++++ _flag_attr_sprite +++++
+
+		PUSH	BC				; BC = реальные координаты спрайта на экране
+
+                LD	A,B				; расчет адреса атрибутов знакоместа в DE
+                RRCA
+                RRCA
+                RRCA
+                LD	E,A
+                AND	31
+                OR	88
+                LD	D,A
+                LD	A,E
+                AND	252
+                OR	C
+                LD	E,A
+
+; +++++ _flag_virt_scr_sprite +++++
+
+		ld	a,virt_screen_high
+		add	a,d
+		ld	d,a
+
+; ----- _flag_virt_scr_sprite -----
+
+                POP     BC                              ; BC = реальные координаты спрайта на экране
+
+		ld	a,(attr_sprite)
+		ld	(de),a				; заносим атрибуты знакоместа на экран
+
+; ----- _flag_attr_sprite -----
+
+                LD      A,B				; расчет адреса первого байта знакоместа в DE
+                LD      D,A
+                RRCA
+                RRCA
+                RRCA
+                AND	A,224
+		ADD	A,C
+                LD	E,A
+                LD	A,D
+                AND	24
+                OR	64
+                LD	D,A				; DE = адрес вывода знакоместа на экране, HL = адрес изображения в спрайте
+
+; +++++ _flag_virt_scr_sprite +++++
+
+		ld	a,virt_screen_high
+		add	a,d
+		ld	d,a
+
+; ----- _flag_virt_scr_sprite -----
+
+		; вывод знакоместа (8 строк)
+
+		dup	7
+		LD	A,(DE)
+		AND	(HL)
+		LD	(DE),A				; вывели байт спрайта
+		INC     HL
+                INC     D
+		edup
+
+		LD	A,(DE)
+		AND	(HL)
+		LD	(DE),A				; вывели байт спрайта
+
+		POP	DE				; HL = адрес нахождения в спрайте, DE = координаты спрайта на экране
+put_spr_and_02	POP	BC				; B = цикл по количеству знакомест в спрайте
+		DJNZ	put_spr_and_01
+		RET
+
+; +++++ _flag_edge_screen_sprite +++++
+
+put_spr_and_03	inc	hl
+put_spr_and_04	ld	bc,8
+		add	hl,bc
+		jp	put_spr_and_02
+
+; ----- _flag_edge_screen_sprite -----
+
+
+
+; ===== _put_sprite_xor =====
+
+; вывод произвольного спрайта с атрибутами по методу XOR
+; вход: HL=адрес спрайта, DE=координаты вывода на экране
+; выход: нет
+
+put_spr_xor	LD	B,(HL)
+
+put_spr_xor_01	PUSH	BC				; B = количество знакомест в спрайте
+
+		INC	HL
+		LD	A,(HL)
+		ADD	A,D
+
+; +++++ _flag_edge_screen_sprite +++++
+
+		CP	24
+		JP	NC,put_spr_xor_03
+
+; ----- _flag_edge_screen_sprite -----
+
+		LD	B,A
+
+		INC	HL
+		LD	A,(HL)
+		ADD	A,E
+
+; +++++ _flag_edge_screen_sprite +++++
+
+		CP	32
+		JP	NC,put_spr_xor_04
+
+; ----- _flag_edge_screen_sprite -----
+
+		LD	C,A
+
+		INC	HL
+		PUSH	DE				; DE = координаты спрайта на экране
+							; HL = адрес нахождения в спрайте, DE = свободно
+
+; +++++ _flag_attr_sprite +++++
+
+		PUSH	BC				; BC = реальные координаты спрайта на экране
+
+                LD	A,B				; расчет адреса атрибутов знакоместа в DE
+                RRCA
+                RRCA
+                RRCA
+                LD	E,A
+                AND	31
+                OR	88
+                LD	D,A
+                LD	A,E
+                AND	252
+                OR	C
+                LD	E,A
+
+; +++++ _flag_virt_scr_sprite +++++
+
+		ld	a,virt_screen_high
+		add	a,d
+		ld	d,a
+
+; ----- _flag_virt_scr_sprite -----
+
+                POP     BC                              ; BC = реальные координаты спрайта на экране
+
+		ld	a,(attr_sprite)
+		ld	(de),a				; заносим атрибуты знакоместа на экран
+
+; ----- _flag_attr_sprite -----
+
+                LD      A,B				; расчет адреса первого байта знакоместа в DE
+                LD      D,A
+                RRCA
+                RRCA
+                RRCA
+                AND	A,224
+		ADD	A,C
+                LD	E,A
+                LD	A,D
+                AND	24
+                OR	64
+                LD	D,A				; DE = адрес вывода знакоместа на экране, HL = адрес изображения в спрайте
+
+; +++++ _flag_virt_scr_sprite +++++
+
+		ld	a,virt_screen_high
+		add	a,d
+		ld	d,a
+
+; ----- _flag_virt_scr_sprite -----
+
+		; вывод знакоместа (8 строк)
+
+		dup	7
+		LD	A,(DE)
+		XOR	(HL)
+		LD	(DE),A				; вывели байт спрайта
+		INC     HL
+                INC     D
+		edup
+
+		LD	A,(DE)
+		OR	(HL)
+		LD	(DE),A				; вывели байт спрайта
+
+		POP	DE				; HL = адрес нахождения в спрайте, DE = координаты спрайта на экране
+put_spr_xor_02	POP	BC				; B = цикл по количеству знакомест в спрайте
+		DJNZ	put_spr_xor_01
+		RET
+
+; +++++ _flag_edge_screen_sprite +++++
+
+put_spr_xor_03	inc	hl
+put_spr_xor_04	ld	bc,8
+		add	hl,bc
+		jp	put_spr_xor_02
+
+; ----- _flag_edge_screen_sprite -----
+
+
+
+; ===== _read_any_key =====
+
+; ожидание нажатия любой клавиши
+; вход: нет
+; выход: a = код нажатой клавиши
+
+waiting_key			xor	a
+				ld	(23560),a
+
+waiting_key_01			halt
+				ld	a,(23560)
+				and	a
+				jp	z,waiting_key_01
+
+				ret
+
+
+; ===== _read_string_from_keyboard =====
+
+; чтение строки символов, введенных с клавиатуры
+; вход: нет
+; выход: (string_temp)=строка
+
+read_key_string			ld	e,1
+				ld	d,95
+				ld	(string_temp),de
+
+				ld	hl,string_temp
+				ld	de,string_temp+1
+
+				ld	bc,(col_screen)
+				ld	(col_screen_temp),bc
+				ld	a,(half_tile_screen)
+				ld	(half_tile_screen_temp),a
+
+				push	hl
+				push	de
+				call	print64
+				pop	de
+				pop	hl
+
+read_key_string_01		xor	a
+				ld	(23560),a
+
+read_key_string_02		ld	a,(23560)
+				and	a
+				jp	z,read_key_string_02
+
+				ld	b,a
+
+				cp	13
+				jp	z,read_key_string_06
+
+				cp	12
+				jp	nz,read_key_string_04
+				ld	a,(hl)
+				cp	1
+				jp	z,read_key_string_01
+
+				ld	a,32
+				ld	(de),a
+				ld	bc,(col_screen_temp)
+				ld	(col_screen),bc
+				ld	a,(half_tile_screen_temp)
+				ld	(half_tile_screen),a
+				push	hl
+				push	de
+				call	print64
+				pop	de
+				pop	hl
+
+				dec	(hl)
+				ld	a,95
+				dec	de
+				ld	(de),a
+				jp	read_key_string_05
+
+read_key_string_04		cp	32
+				jp	c,read_key_string_01
+
+				ld	a,(hl)
+				cp	254
+				jp	nc,read_key_string_01
+				ld	a,b
+
+				cp	97
+				jp	c,read_key_string_03
+				sub	32
+
+read_key_string_03		ld	(de),a
+				inc	de
+				ld	a,95
+				ld	(de),a
+				inc	(hl)
+
+read_key_string_05		ld	bc,(col_screen_temp)
+				ld	(col_screen),bc
+				ld	a,(half_tile_screen_temp)
+				ld	(half_tile_screen),a
+				push	hl
+				push	de
+				call	print64
+				pop	de
+				pop	hl
+
+				jp	read_key_string_01
+
+read_key_string_06		ld	a,32
+				ld	(de),a
+				ld	bc,(col_screen_temp)
+				ld	(col_screen),bc
+				ld	a,(half_tile_screen_temp)
+				ld	(half_tile_screen),a
+				push	hl
+				call	print64
+				pop	hl
+
+				dec	(hl)
+
+				ret
+
+
+; ===== _return_read_key =====
+
+; стирание строки и возврат координат курсора после ошибочного ввода строки на экране
+; вход: нет
+; выход: нет
+
+return_read_key			ld	bc,(col_screen_temp)
+				ld	(col_screen),bc
+				ld	a,(half_tile_screen_temp)
+				ld	(half_tile_screen),a
+
+				ld	hl,string_temp
+				ld	a,(hl)
+				inc	hl
+				ld	(hl),32
+				and	a
+				ret	z
+				cp	1
+				jp	z,return_read_key_01
+
+				ld	c,a
+				ld	b,0
+				ld	de,string_temp+2
+				ldir
+
+return_read_key_01		ld	hl,string_temp
+				ld	bc,(col_screen)
+				call	print64
+
+				ld	bc,(col_screen_temp)
+				ld	(col_screen),bc
+				ld	a,(half_tile_screen_temp)
+				ld	(half_tile_screen),a
+				
+				ret
+
+
+; ===== _convert_16bit_to_string =====
+
+; перевод двухбайтного числа в строку символов
+; вход: hl=число
+; выход: (string_number)=строка
+
+convert_16bit_to_string		ld	de,string_number+1
+
+				ld	bc,10000
+				call	convert_16bit_to_string_01
+
+				ld	bc,1000
+				call	convert_16bit_to_string_01
+
+				ld	bc,100
+				call	convert_16bit_to_string_01
+
+				ld	bc,10
+				call	convert_16bit_to_string_01
+
+				ld	bc,1
+				call	convert_16bit_to_string_01
+
+				ld	b,4
+
+convert_16bit_to_string_03	push	bc
+				ld	hl,string_number+2
+				ld	de,string_number+1
+				ld	a,(de)
+				cp	s__0
+				jp	nz,convert_16bit_to_string_04
+				ld	c,b
+				ld	b,0
+				ldir
+				pop	bc
+				djnz	convert_16bit_to_string_03
+
+				ld	a,1
+				ld	(string_number),a
+
+				ret
+
+convert_16bit_to_string_04	pop	bc
+
+				ld	a,b
+				inc	a
+				ld	(string_number),a
+
+				ret
+
+convert_16bit_to_string_01	ld	a,s__0
+				and	a
+convert_16bit_to_string_02	sbc	hl,bc
+				inc	a
+				jp	nc,convert_16bit_to_string_02
+				add	hl,bc
+				dec	a
+				ld	(de),a
+				inc	de
+				ret
+
+
+; ===== _convert_string_to_16bit =====
+
+; перевод строки символов в двухбайтное число
+; вход: hl=адрес строки
+; выход: (number_temp)=число; CY=1, если ошибка конвертации
+
+convert_string_to_16bit		ld	de,0
+				ld	(number_temp),de
+
+				ld	a,(hl)
+				cp	6
+				jp	nc,convert_string_to_16bit_error
+				cp	5
+				jp	z,convert_string_to_16bit_15
+				cp	4
+				jp	z,convert_string_to_16bit_14
+				cp	3
+				jp	z,convert_string_to_16bit_13
+				cp	2
+				jp	z,convert_string_to_16bit_12
+				cp	1
+				jp	z,convert_string_to_16bit_11
+
+convert_string_to_16bit_error	scf
+				ret
+
+convert_string_to_16bit_error_01	pop	bc				; формальный выход из процедуры convert_string_to_16bit_20
+					scf
+					ret
+
+convert_string_to_16bit_15	ld	bc,10000
+				call	convert_string_to_16bit_20
+convert_string_to_16bit_14	ld	bc,1000
+				call	convert_string_to_16bit_20
+convert_string_to_16bit_13	ld	bc,100
+				call	convert_string_to_16bit_20
+convert_string_to_16bit_12	ld	bc,10
+				call	convert_string_to_16bit_20
+convert_string_to_16bit_11	ld	bc,1
+				call	convert_string_to_16bit_20
+
+				and	a
+				ret
+
+convert_string_to_16bit_20	inc	hl
+				ld	a,(hl)
+				cp	48
+				jp	c,convert_string_to_16bit_error_01
+				cp	58
+				jp	nc,convert_string_to_16bit_error_01
+
+				sub	48
+				ld	e,a
+				ld	d,0
+				push	hl
+				call	mul
+				ld	de,(number_temp)
+				add	hl,de
+				ld	(number_temp),hl
+				pop	hl
+				ret
+
+; ===== _add_string =====
+
+; добавление строки в другую строку
+; вход: hl=адрес строки "куда", de=адрес строки "откуда"
+; выход: нет
+
+add_string			ld	a,(de)
+				and	a
+				ret	z
+
+				push	de
+
+				ld	e,(hl)
+				ld	d,0
+				ld	c,a
+				ld	b,0
+				add	a,e
+				ld	(hl),a
+
+				inc	hl
+				add	hl,de
+				ex	de,hl
+
+				pop	hl
+				inc	hl
+
+				ldir
+
+				ret
+
+
+; ===== _print64 =====
+
+; печать строки текста шрифтом 4х8 с атрибутами
+; вход: hl=адрес текста строки с количеством и кодами символов, b=строка экрана, c=столбец экрана
+; выход: нет
+
+print64		ld	a,(hl)
+		and	a
+		ret	z
+
+; +++++ _flag_attr_text +++++
+
+		push	hl
+		call	calc_addr_attr
+		ld	a,(attr_screen)
+		ld	(hl),a
+		pop	hl
+
+; ----- _flag_attr_text -----
+
+		call	calc_addr_scr
+
+		ld	a,(half_tile_screen)
+		bit	0,a
+		ld	a,(hl)
+		jp	nz,print64_4
+
+print64_3       push    af
+
+; +++++ _flag_attr_text +++++
+
+		push	hl
+		call	calc_addr_attr
+		ld	a,(attr_screen)
+		ld	(hl),a
+		pop	hl
+
+; ----- _flag_attr_text -----
+                
+                inc     hl
+                push    hl
+                
+                ld      a,(hl)
+		sub	32
+		ld	l,a
+		ld	h,0
+		add	hl,hl
+		ld	c,l
+		ld	b,h
+		add	hl,hl
+		add	hl,bc
+                ld      bc,font64
+                add     hl,bc
+
+                push    de
+                
+                ld      b,6
+		xor	a
+		ld	(de),a
+print64_1       inc     d
+                ld      a,(hl)
+		and	#f0
+                ld      c,a
+                ld      a,(de)
+		and	#0f
+                or      c
+                ld      (de),a
+                inc     hl
+                djnz    print64_1
+
+		inc	d
+		xor	a
+		ld	(de),a
+
+		ld	a,1
+		ld	(half_tile_screen),a
+
+                pop     de
+                pop     hl
+                pop     af
+
+                dec     a
+                ret     z
+
+print64_4	push    af
+
+                inc     hl
+                push    hl
+
+                ld      a,(hl)
+		sub	32
+		ld	l,a
+		ld	h,0
+		add	hl,hl
+		ld	c,l
+		ld	b,h
+		add	hl,hl
+		add	hl,bc
+                ld      bc,font64
+                add     hl,bc
+
+                push    de
+
+                ld      b,6
+		xor	a
+		ld	(de),a
+print64_2       inc     d
+                ld      a,(hl)
+                and     #0f
+                ld      c,a
+                ld      a,(de)
+		and	#f0
+                or      c
+                ld      (de),a
+                inc     hl
+                djnz    print64_2
+
+		inc	d
+		xor	a
+		ld	(de),a
+
+		ld	(half_tile_screen),a
+
+                pop     de
+
+		call	move_cr64
+
+                pop     hl
+                pop     af
+                dec     a
+                
+                jp      nz,print64_3
+
+                ret
+
+
+; ===== _move_cr64 =====
+
+; перемещение курсора после печати символа шрифтом 4х8
+; вход: de=адрес знакоместа на экране
+; выход: de=адрес нового знакоместа на экране, b=строка экрана, c=столбец экрана
+
+move_cr64	inc	de
+
+		ld	hl,col_screen
+		inc	(hl)
+		ld	a,(hl)
+
+		cp	32
+		ret	c
+
+		xor	a
+		ld	(half_tile_screen),a
+		ld	(hl),a
+		ld	c,a
+
+		inc	hl
+		inc	(hl)
+		ld	a,(hl)
+		ld	b,a
+
+		cp	24
+		jp	c,move_cr64_01
+
+		ld	a,23
+		ld	(hl),a
+		ld	b,a
+
+		push	bc
+		call	scroll_up8
+		pop	bc
+
+move_cr64_01	call	calc_addr_scr
+
+		ret
+
+
+
+; ===== _calc_addr_scr =====
+
+; расчет адреса знакоместа на экране
+; вход: нет
+; выход: de=адрес знакоместа на экране
+
+calc_addr_scr		ld	bc,(col_screen)
+			ld      a,b
+                	ld      d,a
+                	rrca
+                	rrca
+                	rrca
+                	and     a,224
+                	add     a,c
+                	ld      e,a
+                	ld      a,d
+                	and     24
+                	or      64
+                	ld      d,a
+
+; +++++ _flag_virt_scr_text +++++
+
+			ld	a,virt_screen_high
+			add	a,d
+			ld	d,a
+
+; ----- _flag_virt_scr_text -----
+
+			ret
+
+
+; +++++ _flag_attr_text +++++
+
+; расчет адреса атрибутов знакоместа на экране
+; вход: нет
+; выход: hl=адрес атрибутов знакоместа на экране
+
+calc_addr_attr		ld	bc,(col_screen)
+			ld	a,b
+			rrca
+			rrca
+			rrca
+			ld	l,a
+			and	31
+			or	88
+			ld	h,a
+			ld	a,l
+			and	252
+			or	c
+			ld	l,a
+
+; +++++ _flag_virt_scr_text +++++
+
+			ld	a,virt_screen_high
+			add	a,h
+			ld	h,a
+
+; ----- _flag_virt_scr_text -----
+
+			ret
+
+; ----- _flag_attr_text -----
+
+
+; ===== _scroll_up8 =====
+
+; скроллинг экрана вверх на 8 пикселей (1 знакоместо) с атрибутами
+; вход: нет
+; выход: нет
+
+scroll_up8		ld	hl,table_addr_scr
+			ld	b,184
+
+scroll_up8_01		push	bc
+
+			ld	e,(hl)
+			inc	hl
+			ld	d,(hl)
+			inc	hl
+
+			push	hl
+
+			ld	bc,14
+			add	hl,bc
+			ld	c,(hl)
+			inc	hl
+			ld	b,(hl)
+
+			ld	h,b
+			ld	l,c
+
+			ld	bc,32
+			ldir
+
+			pop	hl
+			pop	bc
+			djnz	scroll_up8_01
+
+			ld	b,8
+
+scroll_up8_02		push	bc
+
+			ld	e,(hl)
+			inc	hl
+			ld	d,(hl)
+			inc	hl
+
+			push	hl
+
+			ld	h,d
+			ld	l,e
+			inc	de
+			ld	(hl),0
+			ld	bc,31
+			ldir
+
+			pop	hl
+			pop	bc
+			djnz	scroll_up8_02
+
+			ld	de,#5800
+			ld	hl,#5820
+			ld	bc,736
+			ldir
+
+			ld	a,(de)
+
+			ld	hl,#5ae0
+			ld	de,#5ae1
+			ld	(hl),a
+			ld	bc,31
+			ldir
+
+			ret
+
+
+; ===== _clrscr =====
+
+; очистка экрана или виртуального экрана
+; вход: hl = адрес экрана
+; выход: нет
+
+clrscr			ld	d,h
+			ld	e,l
+			inc	de
+			ld	(hl),0
+
+			ld	a,48
+clrscr_01		dup	128
+			ldi
+			edup
+			dec	a
+			jp	nz,clrscr_01
+
+			ld	a,(attr_screen)
+			ld	(hl),a
+			ld	bc,767
+			ldir
+
+			ld	bc,0
+			ld	(col_screen),bc
+			xor	a
+			ld	(half_tile_screen),a
+
+			ret
+
+
+; ===== _window_clear =====
+
+; очистка окна
+; вход: нет
+; выход: нет
+
+
+window LD    BC,(width_window)		;чтение сразу двух переменных:
+                         		; C = LEN, B = HGT
+       LD    A,(row_window)
+CLSV1  PUSH  AF
+       PUSH  BC
+       call  3742        ;адрес начала строки экрана
+       LD    A,(col_window)     ;прибавляем смещение
+       ADD   A,L         ; COL по горизонтали
+       LD    L,A
+       LD    B,8         ;в каждой строке 8 рядов пикселей
+CLSV2  PUSH  HL
+       LD    E,C         ;счетчик циклов в E, равный ширине окна
+       XOR   A           ;в аккумуляторе 0
+CLSV3  LD    (HL),A      ;обнуляем очередной байт видеобуфера
+       INC   HL          ;переходим к следующему
+       DEC   E           ;пока не дойдем до правого края окна
+       JR    NZ,CLSV3
+       POP   HL
+       INC   H           ;переходим к следующему ряду пикселей
+       DJNZ  CLSV2
+       POP   BC
+       POP   AF
+       INC   A           ;переходим к следующей строке экрана
+       DJNZ  CLSV1       ;повторяем, пока не дойдем
+                         ; до нижнего края окна
+
+; +++++ _flag_attr_window +++++
+
+SETV   LD    DE,#5800    ;адрес начала области атрибутов экрана
+       LD    BC,(width_window)    ;C = LEN, B = HGT
+       LD    A,(row_window)
+       LD    L,A         ;расчет адреса левого верхнего угла окна
+       LD    H,0         ; в области атрибутов экрана
+       ADD   HL,HL       ;умножаем на 32 (2 в 5-ой степени)
+       ADD   HL,HL
+       ADD   HL,HL
+       ADD   HL,HL
+       ADD   HL,HL
+       ADD   HL,DE       ;полученное смещение складываем
+                         ; с началом области атрибутов
+       LD    A,(col_window)     ;добавляем горизонтальное смещение окна
+       ADD   A,L
+       LD    L,A
+       LD    A,(attr_screen)    ;в аккумуляторе байт атрибутов
+SETV1  PUSH  BC
+       PUSH  HL
+SETV2  LD    (HL),A      ;помещаем в видеобуфер
+       INC   HL
+       DEC   C           ;до правого края окна
+       JR    NZ,SETV2
+       POP   HL
+       POP   BC
+       LD    DE,32       ;переходим к следующей строке
+       ADD   HL,DE       ; (длина строки 32 знакоместа)
+       DJNZ  SETV1       ;повторяем, пока не дойдем до нижнего
+                         ; края окна
+
+; ----- _flag_attr_window -----
+
+       RET
+
+
+; ===== _window_get_put =====
+
+; сохранение окна в памяти
+; вход: нет
+; выход: нет
+
+getimage	ld	de,addr_virt_screen
+		ld	hl,col_window
+		ldi
+		ldi
+		ldi
+		ldi
+
+		ld	hl,(col_window)			; l=col_window, h=row_window
+		ld	a,(height_window)
+		ld	b,a
+
+getimage_01	push	bc
+		push	hl
+
+                LD      A,H				; расчет адреса первого байта знакоместа в HL
+                RRCA
+                RRCA
+                RRCA
+                AND	A,224
+		ADD	A,L
+                LD	L,A
+                LD	A,H
+                AND	24
+                OR	64
+                LD	H,A
+
+		dup	8
+		push	hl
+		ld	bc,(width_window)
+		ld	b,0
+		ldir
+		pop	hl
+		inc	h
+		edup
+
+		pop	hl
+
+		inc	h
+
+		pop	bc
+		djnz	getimage_01
+
+; +++++ _flag_attr_window +++++
+
+		ld	hl,(col_window)			; l=col_window, h=row_window
+		ld	a,(height_window)
+		ld	b,a
+
+getimage_02	push	bc
+		push	hl
+
+                LD	A,H				; расчет адреса атрибутов знакоместа в BC
+                RRCA
+                RRCA
+                RRCA
+                LD	C,A
+                AND	31
+                OR	88
+                LD	B,A
+                LD	A,C
+                AND	252
+                OR	L
+                LD	C,A
+
+		ld	h,b
+		ld	l,c
+		ld	bc,(width_window)
+		ld	b,0
+		ldir
+
+		pop	hl
+
+		inc	h
+
+		pop	bc
+		djnz	getimage_02
+
+; ----- _flag_attr_window -----
+
+		ret
+
+
+; вывод окна из памяти
+; вход: нет
+; выход: нет
+
+putimage	ld	hl,addr_virt_screen+2
+		ld	de,col_window+2
+		ldi
+		ldi
+
+		ld	de,(col_window)			; e=col_window, d=row_window
+		ld	a,(height_window)
+		ld	b,a
+
+putimage_01	push	bc
+		push	de
+
+                LD      A,D				; расчет адреса первого байта знакоместа в DE
+                RRCA
+                RRCA
+                RRCA
+                AND	A,224
+		ADD	A,E
+                LD	E,A
+                LD	A,D
+                AND	24
+                OR	64
+                LD	D,A
+
+		dup	8
+		push	de
+		ld	bc,(width_window)
+		ld	b,0
+		ldir
+		pop	de
+		inc	d
+		edup
+
+		pop	de
+
+		inc	d
+
+		pop	bc
+		djnz	putimage_01
+
+; +++++ _flag_attr_window +++++
+
+		ld	de,(col_window)			; e=col_window, d=row_window
+		ld	a,(height_window)
+		ld	b,a
+
+putimage_02	push	bc
+		push	de
+
+                LD	A,D				; расчет адреса атрибутов знакоместа в BC
+                RRCA
+                RRCA
+                RRCA
+                LD	C,A
+                AND	31
+                OR	88
+                LD	B,A
+                LD	A,C
+                AND	252
+                OR	E
+                LD	C,A
+
+		ld	d,b
+		ld	e,c
+		ld	bc,(width_window)
+		ld	b,0
+		ldir
+
+		pop	de
+
+		inc	d
+
+		pop	bc
+		djnz	putimage_02
+
+; ----- _flag_attr_window -----
+
+		ret
+
+
+; ===== _window_scroll_up =====
+
+; попиксельный скроллинг окна вверх
+; вход: нет
+; выход: нет
+
+scr_up LD    A,(col_window)
+       LD    C,A
+       LD    A,(height_window)
+       LD    B,A
+       LD    A,(row_window)
+; Значения из переменных ROW, COL и HGT умножаем на 8,
+;  то есть переводим знакоместа в пиксели
+       SLA   A
+       SLA   A
+       SLA   A
+       SLA   B
+       SLA   B
+       SLA   B
+       DEC   B           ;потому что один ряд пикселей просто
+                         ; заполняется нулями
+       SLA   C
+       SLA   C
+       SLA   C
+       PUSH  AF
+       PUSH  BC
+       CALL  8880        ;вычисляем адрес верхнего левого угла окна
+       POP   BC
+       POP   AF
+SCRUP1 INC   A           ;следующий ряд пикселей
+       PUSH  AF
+       PUSH  BC
+       PUSH  HL
+       CALL  8880        ;вычисляем адрес
+       POP   DE
+       PUSH  HL
+       LD    A,(width_window)     ;пересылаем столько байт, сколько
+                         ; умещается по ширине окна
+       LD    C,A
+       LD    B,0
+       LDIR
+       POP   HL
+       POP   BC
+       POP   AF
+       DJNZ  SCRUP1
+       LD    (HL),0      ;в последний ряд пикселей записываем нули
+       LD    D,H
+       LD    E,L
+       INC   DE
+       LD    A,(width_window)     ;по ширине окна,
+       DEC   A           ; минус 1
+       RET   Z           ;выходим, если только одно знакоместо
+       LD    C,A
+       LD    B,0
+       LDIR              ;иначе обнуляем и все остальные байты ряда
+       RET
+
+
+; ===== _window_scroll_down =====
+
+; попиксельный скроллинг окна вниз
+; вход: нет
+; выход: нет
+
+scr_dn LD    A,(col_window)
+       LD    C,A
+       LD    A,(height_window)
+       LD    B,A
+       LD    A,(row_window)
+       ADD   A,B         ;начинаем перемещать изображение не
+                         ; сверху, как в SCR_UP, а снизу
+       SLA   A
+       SLA   A
+       SLA   A
+       DEC   A
+       SLA   B
+       SLA   B
+       SLA   B
+       DEC   B
+       SLA   C
+       SLA   C
+       SLA   C
+       PUSH  AF
+       PUSH  BC
+       CALL  8880
+       POP   BC
+       POP   AF
+SCRDN1 DEC   A           ;следующий ряд пикселей (идем вверх)
+       PUSH  AF
+       PUSH  BC
+       PUSH  HL
+       CALL  8880
+       POP   DE
+       PUSH  HL
+       LD    A,(width_window)
+       LD    C,A
+       LD    B,0
+       LDIR
+       POP   HL
+       POP   BC
+       POP   AF
+       DJNZ  SCRDN1
+       LD    (HL),0
+       LD    D,H
+       LD    E,L
+       INC   DE
+       LD    A,(width_window)
+       DEC   A
+       RET   Z
+       LD    C,A
+       LD    B,0
+       LDIR
+       RET
+
+
+; ===== _window_scroll_left =====
+
+; попиксельный скроллинг окна влево
+; вход: нет
+; выход: нет
+
+
+scr_lf LD    A,(height_window)
+       LD    B,A
+       LD    A,(row_window)
+SCRLF1 PUSH  AF
+       PUSH  BC
+       CALL  3742
+       LD    A,(col_window)
+       LD    B,A
+       LD    A,(width_window)
+       DEC   A
+       ADD   A,B
+       ADD   A,L
+       LD    L,A
+       LD    B,8
+SCRLF2 PUSH  HL
+       LD    A,(width_window)
+       AND   A
+SCRLF3 RL    (HL)
+       DEC   HL
+       DEC   A
+       JR    NZ,SCRLF3
+       POP   HL
+       INC   H
+       DJNZ  SCRLF2
+       POP   BC
+       POP   AF
+       INC   A
+       DJNZ  SCRLF1
+       RET
+
+
+
+; ===== _window_scroll_right =====
+
+; попиксельный скроллинг окна вправо
+; вход: нет
+; выход: нет
+
+scr_rt LD    A,(height_window)
+       LD    B,A
+       LD    A,(row_window)
+SCRRT1 PUSH  AF
+       PUSH  BC
+       CALL  3742
+       LD    A,(col_window)
+       ADD   A,L
+       LD    L,A
+       LD    B,8
+SCRRT2 PUSH  HL
+       LD    A,(width_window)
+       AND   A
+SCRRT3 RR    (HL)
+       INC   HL
+       DEC   A
+       JR    NZ,SCRRT3
+       POP   HL
+       INC   H
+       DJNZ  SCRRT2
+       POP   BC
+       POP   AF
+       INC   A
+       DJNZ  SCRRT1
+       RET
+
+
+
+; ===== _delay =====
+
+; пауза
+; вход: hl=количество интервалов 1/50 секунды
+; выход: нет
+
+pause			halt
+			dec	hl
+			ld	a,h
+			or	l
+			jr	nz,pause
+
+			ret
+
+
+; ===== _mul_proc =====
+
+; функция беззнакового умножения 16-разрядных чисел
+; (C) Kirill Frolov
+;     idea by Vasil Ivanov
+; dehl=de*bc   ~730t.
+
+mul	ld	a,d
+	and	a
+	jp	nz,mul_00
+	ld	ix,mul_00
+	ld	h,b
+	ld	l,c
+	ld	a,e
+	jp	mul_02
+
+mul_00	ld	a,b
+	and	a
+	jp	nz,mul_01
+	ld	ix,mul_01
+	ld	h,d
+	ld	l,e
+	ld	a,c
+	jp	mul_02
+
+mul_01
+        ld hl, 0
+        ld a, c 
+        ld c, l    ; 18
+
+        add a, a 
+        jr nc, $+4
+        add hl, de 
+        adc a, c   ; 29
+     ; REPEAT 7
+          add hl, hl 
+          rla 
+          jr nc, $+4
+          add hl, de 
+          adc a, c   ; 40*7  309
+              add hl, hl 
+              rla 
+              jr nc, $+4
+              add hl, de 
+              adc a, c 
+            add hl, hl 
+            rla 
+            jr nc, $+4
+            add hl, de 
+            adc a, c 
+              add hl, hl 
+              rla 
+              jr nc, $+4
+              add hl, de 
+              adc a, c 
+            add hl, hl 
+            rla 
+            jr nc, $+4
+            add hl, de 
+            adc a, c 
+              add hl, hl 
+              rla 
+              jr nc, $+4
+              add hl, de 
+              adc a, c 
+            add hl, hl 
+            rla 
+            jr nc, $+4
+            add hl, de 
+            adc a, c 
+     ; ENDR 
+
+        ld c, a 
+        push hl   ; 0chl
+        ld hl, 0
+        ld a, b 
+        ld b, l   ; 33
+
+        add a, a 
+        jr nc, $+4
+        add hl, de
+        add a, b   ; 29
+     ; REPEAT 7
+          add hl, hl 
+          rla 
+          jr nc, $+4
+          add hl, de 
+          add a, b   ; 40*7  309
+              add hl, hl 
+              rla 
+              jr nc, $+4
+              add hl, de 
+              add a, b 
+            add hl, hl 
+            rla 
+            jr nc, $+4
+            add hl, de 
+            add a, b 
+              add hl, hl 
+              rla 
+              jr nc, $+4
+              add hl, de 
+              add a, b 
+            add hl, hl 
+            rla 
+            jr nc, $+4
+            add hl, de 
+            add a, b 
+              add hl, hl 
+              rla 
+              jr nc, $+4
+              add hl, de 
+              add a, b 
+            add hl, hl 
+            rla 
+            jr nc, $+4
+            add hl, de 
+            add a, b 
+     ; ENDR 
+
+   ; ahl0 + 0cde = hlde
+        pop de
+        ld b, l
+        ld l, h
+        ld h, a
+        ld a, d
+        add a, b
+        ld d, a 
+        ld b, 0
+        adc hl, bc
+        ex de, hl   ; 60
+
+        ret         ; 729t.
+
+
+mul_02		and	a
+		jp	z,mul_n0
+		cp	1
+		jp	z,mul_n1
+		cp	2
+		jp	z,mul_n2
+		cp	3
+		jp	z,mul_n3
+		cp	4
+		jp	z,mul_n4
+		cp	5
+		jp	z,mul_n5
+		cp	8
+		jp	z,mul_n8
+		cp	10
+		jp	z,mul_n10
+		cp	15
+		jp	z,mul_n15
+		cp	16
+		jp	z,mul_n16
+		cp	20
+		jp	z,mul_n20
+		cp	32
+		jp	z,mul_n32
+		cp	50
+		jp	z,mul_n50
+		cp	64
+		jp	z,mul_n64
+		cp	100
+		jp	z,mul_n100
+		cp	128
+		jp	z,mul_n128
+		jp	(ix)
+
+mul_n0		ld	hl,0
+		ret
+
+mul_n1		ret
+
+mul_n2		add	hl,hl
+		ret
+
+mul_n3		ld	d,h
+		ld	e,l
+		add	hl,hl
+		add	hl,de
+		ret
+
+mul_n4		add	hl,hl
+		add	hl,hl
+		ret
+
+mul_n5		ld	d,h
+		ld	e,l
+		add	hl,hl
+		add	hl,hl
+		add	hl,de
+		ret
+
+mul_n8		add	hl,hl
+		add	hl,hl
+		add	hl,hl
+		ret
+
+mul_n10		add	hl,hl
+		ld	d,h
+		ld	e,l
+		add	hl,hl
+		add	hl,hl
+		add	hl,de
+		ret
+
+mul_n15		ld	d,h
+		ld	e,l
+		add	hl,hl
+		add	hl,hl
+		add	hl,hl
+		add	hl,hl
+		and	a
+		sbc	hl,de
+		ret
+
+mul_n16		add	hl,hl
+		add	hl,hl
+		add	hl,hl
+		add	hl,hl
+		ret
+
+mul_n20		add	hl,hl
+		add	hl,hl
+		ld	d,h
+		ld	e,l
+		add	hl,hl
+		add	hl,hl
+		add	hl,de
+		ret
+
+mul_n32		add	hl,hl
+		add	hl,hl
+		add	hl,hl
+		add	hl,hl
+		add	hl,hl
+		ret
+
+mul_n50		add	hl,hl
+		ld	d,h
+		ld	e,l
+		add	hl,hl
+		add	hl,hl
+		add	hl,hl
+		ld	b,h
+		ld	c,l
+		add	hl,hl
+		add	hl,bc
+		add	hl,de
+		ret
+
+mul_n64		add	hl,hl
+		add	hl,hl
+		add	hl,hl
+		add	hl,hl
+		add	hl,hl
+		add	hl,hl
+		ret
+
+mul_n100	add	hl,hl
+		add	hl,hl
+		ld	d,h
+		ld	e,l
+		add	hl,hl
+		add	hl,hl
+		add	hl,hl
+		ld	b,h
+		ld	c,l
+		add	hl,hl
+		add	hl,bc
+		add	hl,de
+		ret
+
+mul_n128	add	hl,hl
+		add	hl,hl
+		add	hl,hl
+		add	hl,hl
+		add	hl,hl
+		add	hl,hl
+		add	hl,hl
+		ret
+
+
+; ===== _div_proc =====
+
+; функция 16-разрядного беззнакового деления
+; (C) Aleksey Malov aka Vivid
+;     little optimized by Vitaly Vidmirov
+; hl = de/bc  de = de%bc  ~840 takts.
+; hl = 65535, de = de(dividend) if bc(divisor) == 0.
+div	ld hl,65535
+	ld a,b
+	or c
+	ret z	; если bс=0
+
+
+       xor a     ;меняем знак
+       sub c     ; у делителя
+       ld c, a 
+       sbc a, b 
+       sub c 
+       ld b, a 
+       ld hl,0   ;обнулили новое делимое
+       ld a,d    ;сначала двигаем
+       rla       ;старший байт делимого
+                 ;t=18
+  ;  REPEAT 8
+       rl l      ;
+       add hl,bc ;
+       jr c,$+4  ;8 раз
+       sbc hl,bc ;
+       rla       ; t=8*45=360
+           rl l 
+           add hl,bc 
+           jr c,$+4
+           sbc hl,bc 
+           rla 
+         rl l 
+         add hl,bc 
+         jr c,$+4
+         sbc hl,bc 
+         rla 
+           rl l 
+           add hl,bc 
+           jr c,$+4
+           sbc hl,bc 
+           rla 
+         rl l 
+         add hl,bc 
+         jr c,$+4
+         sbc hl,bc 
+         rla 
+           rl l 
+           add hl,bc 
+           jr c,$+4
+           sbc hl,bc 
+           rla 
+         rl l 
+         add hl,bc 
+         jr c,$+4
+         sbc hl,bc 
+         rla 
+           rl l 
+           add hl,bc 
+           jr c,$+4
+           sbc hl,bc 
+           rla 
+  ; ENDR 
+
+       ld d,a    ;ст. байт результата
+       ld a,e    ;теперь двигаем
+       rla       ;младший байт  t=12
+
+  ; REPEAT 8
+       adc hl,hl ;
+       add hl,bc ;
+       jr c,$+4  ;8 раз
+       sbc hl,bc ;
+       rla       ; t=8*52=416
+           adc hl,hl 
+           add hl,bc 
+           jr c,$+4
+           sbc hl,bc 
+           rla 
+         adc hl,hl 
+         add hl,bc 
+         jr c,$+4
+         sbc hl,bc 
+         rla 
+           adc hl,hl 
+           add hl,bc 
+           jr c,$+4
+           sbc hl,bc 
+           rla 
+         adc hl,hl 
+         add hl,bc 
+         jr c,$+4
+         sbc hl,bc 
+         rla 
+           adc hl,hl 
+           add hl,bc 
+           jr c,$+4
+           sbc hl,bc 
+           rla 
+         adc hl,hl 
+         add hl,bc 
+         jr c,$+4
+         sbc hl,bc 
+         rla 
+           adc hl,hl 
+           add hl,bc 
+           jr c,$+4
+           sbc hl,bc 
+           rla 
+  ; ENDR 
+
+       ld e,a    ;мл. байт результата
+                 ;hl-остаток от деления
+                 ;t=4
+       ex de, hl 
+       ret
+
+
+; ===== _font64 =====
+
+; коды символов для шрифта 4х8
+
+s_sp             equ     32
+s__0             equ     48
+
+
+; шрифт 4х8
+                
+font64
+
+                    defb #00,#00,#00,#00,#00,#00	; 032  space
+                    defb #44,#44,#44,#44,#00,#44	; 033  !
+                    defb #AA,#AA,#00,#00,#00,#00	; 034  "
+                    defb #AA,#EE,#AA,#AA,#EE,#AA	; 035  #
+                    defb #44,#EE,#CC,#66,#EE,#44	; 036  $
+                    defb #AA,#22,#44,#44,#88,#AA	; 037  %
+                    defb #44,#AA,#44,#AA,#AA,#55	; 038  &
+                    defb #22,#44,#00,#00,#00,#00	; 039  '
+                    defb #22,#44,#44,#44,#44,#22	; 040  (
+                    defb #44,#22,#22,#22,#22,#44	; 041  )
+                    defb #00,#AA,#44,#AA,#00,#00	; 042  *
+                    defb #00,#44,#EE,#44,#00,#00	; 043  +
+                    defb #00,#00,#00,#00,#22,#44	; 044  ,
+                    defb #00,#00,#EE,#00,#00,#00	; 045  -
+                    defb #00,#00,#00,#00,#00,#44	; 046  .
+                    defb #22,#22,#44,#44,#88,#88	; 047  /
+                    defb #44,#AA,#AA,#AA,#AA,#44	; 048  0
+                    defb #44,#CC,#44,#44,#44,#EE	; 049  1
+                    defb #44,#AA,#22,#44,#88,#EE	; 050  2
+                    defb #EE,#22,#44,#22,#22,#CC	; 051  3
+                    defb #22,#66,#AA,#EE,#22,#22	; 052  4
+                    defb #EE,#88,#CC,#22,#22,#CC	; 053  5
+                    defb #66,#88,#CC,#AA,#AA,#44	; 054  6
+                    defb #EE,#22,#44,#88,#88,#88	; 055  7
+                    defb #44,#AA,#44,#AA,#AA,#44	; 056  8
+                    defb #44,#AA,#AA,#66,#22,#CC	; 057  9
+                    defb #00,#44,#00,#00,#44,#00	; 058  :
+                    defb #00,#22,#00,#00,#22,#44	; 059  ;
+                    defb #00,#22,#44,#88,#44,#22	; 060  <
+                    defb #00,#EE,#00,#EE,#00,#00	; 061  =
+                    defb #00,#88,#44,#22,#44,#88	; 062  >
+                    defb #44,#AA,#22,#44,#00,#44	; 063  ?
+                    defb #66,#BB,#DD,#FF,#CC,#66	; 064  @
+                    defb #66,#AA,#AA,#EE,#AA,#AA	; 065  A
+                    defb #CC,#AA,#CC,#AA,#AA,#CC	; 066  B
+                    defb #44,#AA,#88,#88,#AA,#44	; 067  C
+                    defb #CC,#AA,#AA,#AA,#AA,#CC	; 068  D
+                    defb #EE,#88,#CC,#88,#88,#EE	; 069  E
+                    defb #EE,#88,#CC,#88,#88,#88	; 070  F
+                    defb #66,#88,#88,#AA,#AA,#66	; 071  G
+                    defb #AA,#AA,#EE,#AA,#AA,#AA	; 072  H
+                    defb #EE,#44,#44,#44,#44,#EE	; 073  I
+                    defb #66,#22,#22,#22,#AA,#44	; 074  J
+                    defb #AA,#AA,#CC,#AA,#AA,#AA	; 075  K
+                    defb #88,#88,#88,#88,#88,#EE	; 076  L
+                    defb #AA,#EE,#EE,#EE,#AA,#AA	; 077  M
+                    defb #AA,#AA,#EE,#EE,#EE,#AA	; 078  N
+                    defb #66,#AA,#AA,#AA,#AA,#CC	; 079  O
+                    defb #CC,#AA,#AA,#CC,#88,#88	; 080  P
+                    defb #44,#AA,#AA,#AA,#EE,#77	; 081  Q
+                    defb #CC,#AA,#AA,#CC,#AA,#AA	; 082  R
+                    defb #66,#88,#CC,#66,#22,#CC	; 083  S
+                    defb #EE,#44,#44,#44,#44,#44	; 084  T
+                    defb #AA,#AA,#AA,#AA,#AA,#66	; 085  U
+                    defb #AA,#AA,#AA,#AA,#AA,#44	; 086  V
+                    defb #AA,#AA,#EE,#EE,#EE,#44	; 087  W
+                    defb #AA,#AA,#44,#AA,#AA,#AA	; 088  X
+                    defb #AA,#AA,#AA,#44,#44,#44	; 089  Y
+                    defb #EE,#22,#44,#44,#88,#EE	; 090  Z
+                    defb #66,#44,#44,#44,#44,#66	; 091  [
+                    defb #88,#88,#44,#44,#22,#22	; 092  \
+                    defb #66,#22,#22,#22,#22,#66	; 093  ]
+                    defb #44,#AA,#00,#00,#00,#00	; 094  ^
+                    defb #00,#00,#00,#00,#00,#EE	; 095  _
+                    defb #55,#AA,#00,#00,#00,#00	; 096  ~
+                    defb #44,#EE,#44,#44,#44,#44	; 097  cross
+                    defb #44,#EE,#44,#44,#EE,#44	; 098  double cross
+                    defb #66,#88,#EE,#EE,#88,#66	; 099  euro
+                    defb #66,#BB,#DD,#DD,#BB,#66	; 100  copyright
+                    defb #EE,#22,#00,#00,#00,#00	; 101  -|
+                    defb #44,#AA,#44,#00,#00,#00	; 102  gradus
+                    defb #44,#EE,#44,#00,#EE,#00	; 103  +-
+                    defb #44,#44,#44,#44,#44,#44	; 104  |
+                    defb #00,#00,#FF,#00,#00,#00	; 105  pseudographic -
+                    defb #44,#44,#FF,#44,#44,#44	; 106  pseudographic cross
+                    defb #00,#00,#CC,#44,#44,#44	; 107  pseudographic left-down
+                    defb #00,#00,#77,#44,#44,#44	; 108  pseudographic right-down
+                    defb #44,#44,#CC,#00,#00,#00	; 109  pseudographic left-up
+                    defb #44,#44,#77,#00,#00,#00	; 110  pseudographic right-up
+                    defb #22,#EE,#44,#EE,#88,#00	; 111  <>
+                    defb #22,#55,#44,#EE,#44,#FF	; 112  funt
+                    defb #22,#44,#CC,#44,#44,#22	; 113  {
+                    defb #88,#44,#66,#44,#44,#88	; 114  }
+                    defb #66,#AA,#AA,#EE,#AA,#AA	; 115  А
+                    defb #EE,#88,#CC,#AA,#AA,#CC	; 116  Б
+                    defb #CC,#AA,#CC,#AA,#AA,#CC	; 117  В
+                    defb #EE,#88,#88,#88,#88,#88	; 118  Г
+                    defb #22,#66,#AA,#AA,#AA,#FF	; 119  Д
+                    defb #EE,#88,#CC,#88,#88,#EE	; 120  Е
+                    defb #AA,#EE,#44,#EE,#EE,#AA	; 121  Ж
+                    defb #CC,#22,#44,#22,#22,#CC	; 122  З
+                    defb #AA,#AA,#AA,#EE,#EE,#AA	; 123  И
+                    defb #44,#AA,#AA,#EE,#EE,#AA	; 124  Й
+                    defb #AA,#AA,#CC,#AA,#AA,#AA	; 125  К
+                    defb #22,#66,#AA,#AA,#AA,#AA	; 126  Л
+                    defb #AA,#EE,#EE,#EE,#AA,#AA	; 127  М
+                    defb #AA,#AA,#EE,#AA,#AA,#AA	; 128  Н
+                    defb #66,#AA,#AA,#AA,#AA,#CC	; 129  О
+                    defb #EE,#AA,#AA,#AA,#AA,#AA	; 130  П
+                    defb #CC,#AA,#AA,#CC,#88,#88	; 131  Р
+                    defb #44,#AA,#88,#88,#AA,#44	; 132  С
+                    defb #EE,#44,#44,#44,#44,#44	; 133  Т
+                    defb #AA,#AA,#AA,#66,#22,#CC	; 134  У
+                    defb #44,#EE,#EE,#EE,#44,#44	; 135  Ф
+                    defb #AA,#AA,#44,#AA,#AA,#AA	; 136  Х
+                    defb #AA,#AA,#AA,#AA,#AA,#FF	; 137  Ц
+                    defb #AA,#AA,#AA,#66,#22,#22	; 138  Ч
+                    defb #AA,#AA,#EE,#EE,#EE,#EE	; 139  Ш
+                    defb #AA,#AA,#EE,#EE,#EE,#FF	; 140  Щ
+                    defb #CC,#44,#66,#55,#55,#66	; 141  Ъ
+                    defb #99,#99,#DD,#BB,#BB,#DD	; 142  Ы
+                    defb #88,#88,#CC,#AA,#AA,#CC	; 143  Ь
+                    defb #CC,#22,#66,#22,#22,#CC	; 144  Э
+                    defb #AA,#DD,#DD,#DD,#DD,#AA	; 145  Ю
+                    defb #66,#AA,#AA,#66,#AA,#AA	; 146  Я
+
+
+; ===== _table_addr_scr =====
+
+; таблица адресов для пиксельных строк экрана
+
+table_addr_scr		defw	#4000,#4100,#4200,#4300,#4400,#4500,#4600,#4700
+			defw	#4020,#4120,#4220,#4320,#4420,#4520,#4620,#4720
+			defw	#4040,#4140,#4240,#4340,#4440,#4540,#4640,#4740
+			defw	#4060,#4160,#4260,#4360,#4460,#4560,#4660,#4760
+			defw	#4080,#4180,#4280,#4380,#4480,#4580,#4680,#4780
+			defw	#40a0,#41a0,#42a0,#43a0,#44a0,#45a0,#46a0,#47a0
+			defw	#40c0,#41c0,#42c0,#43c0,#44c0,#45c0,#46c0,#47c0
+			defw	#40e0,#41e0,#42e0,#43e0,#44e0,#45e0,#46e0,#47e0
+
+			defw	#4800,#4900,#4a00,#4b00,#4c00,#4d00,#4e00,#4f00
+			defw	#4820,#4920,#4a20,#4b20,#4c20,#4d20,#4e20,#4f20
+			defw	#4840,#4940,#4a40,#4b40,#4c40,#4d40,#4e40,#4f40
+			defw	#4860,#4960,#4a60,#4b60,#4c60,#4d60,#4e60,#4f60
+			defw	#4880,#4980,#4a80,#4b80,#4c80,#4d80,#4e80,#4f80
+			defw	#48a0,#49a0,#4aa0,#4ba0,#4ca0,#4da0,#4ea0,#4fa0
+			defw	#48c0,#49c0,#4ac0,#4bc0,#4cc0,#4dc0,#4ec0,#4fc0
+			defw	#48e0,#49e0,#4ae0,#4be0,#4ce0,#4de0,#4ee0,#4fe0
+
+			defw	#5000,#5100,#5200,#5300,#5400,#5500,#5600,#5700
+			defw	#5020,#5120,#5220,#5320,#5420,#5520,#5620,#5720
+			defw	#5040,#5140,#5240,#5340,#5440,#5540,#5640,#5740
+			defw	#5060,#5160,#5260,#5360,#5460,#5560,#5660,#5760
+			defw	#5080,#5180,#5280,#5380,#5480,#5580,#5680,#5780
+			defw	#50a0,#51a0,#52a0,#53a0,#54a0,#55a0,#56a0,#57a0
+			defw	#50c0,#51c0,#52c0,#53c0,#54c0,#55c0,#56c0,#57c0
+			defw	#50e0,#51e0,#52e0,#53e0,#54e0,#55e0,#56e0,#57e0
+
+
+; ===== _put_number_variable =====
+
+string_number			defb	5,0,0,0,0,0				; сконвертированное в строку 16-битное число
+number_temp			defw	0					; промежуточное 16-битное число
+rnd				defw	0					; случайное число
+
+
+; ===== _put_string_temp =====
+
+string_temp			defb	0					; промежуточная переменная-строка
+				dup	255
+				defb	32
+				edup
+
+
+; ===== _array_index =====
+
+addr_arraybyte_index		defw	0					; адрес ячейки в массиве типа arraybyte
+addr_arrayword_index		defw	0					; адрес ячейки в массиве типа arrayword
+addr_arraystring_index		defw	0					; адрес ячейки в массиве типа arraystring
+addr_arraybyte_index111		defw	0					; адрес ячейки в массиве типа arraybyte при оптимизации
+addr_arrayword_index111		defw	0					; адрес ячейки в массиве типа arrayword при оптимизации
+
+
+; ===== _put_addr_array_string =====
+
+addr_array_string		defw	0					; промежуточный адрес в строковом массиве
+addr_array_string_assign	defw	0					; промежуточный адрес в строковом массиве при присваивании
+
+
+; ===== _put_text_variable =====
+
+col_screen			defb	0					; столбец экрана
+row_screen			defb	0					; строка экрана
+half_tile_screen		defb	0					; полузнакоместо (0=первое/1=второе)
+attr_screen			defb	56					; атрибуты экрана
+attr_sprite			defb	0					; атрибуты спрайта
+
+col_screen_temp			defw	0					; временные координаты на экране
+half_tile_screen_temp		defb	0					; временное полузнакоместо
+
+
+; ===== _window =====
+
+col_window			defb	0					; столбец окна
+row_window			defb	0					; строка окна
+width_window			defb	0					; ширина окна
+height_window			defb	0					; высота окна
+
+
+; ===== _readkey =====
+
+code_key_1			defb	0					; код нажатой клавиши 1
+code_key_2			defb	0					; код нажатой клавиши 2
+
+table_code_key			defb	32,16,77,78,66				; таблица кодов нажатых клавиш для полурядов
+				defb	13,76,75,74,72
+				defb	80,79,73,85,89
+				defb	48,57,56,55,54
+				defb	49,50,51,52,53
+				defb	81,87,69,82,84
+				defb	65,83,68,70,71
+				defb	17,90,88,67,86
+
+
+; ===== _map =====
+
+map_addr_array		defw	0
+map_xmax_array		defb	0
+map_ymax_array		defb	0
+map_addr_sprites	defw	0
+map_xscr		defb	0
+map_yscr		defb	0
+map_width_scr		defb	0
+map_height_scr		defb	0
+
+map_x			defb	0
+map_y			defb	0
+map_xmin		defb	0
+map_ymin		defb	0
+map_xmax		defb	0
+map_ymax		defb	0
+map_xlen		defb	0
+map_ylen		defb	0
+map_addr_curr		defw	0
+map_xscr_curr		defb	0
+map_yscr_curr		defb	0
+
+map_id_elem		defb	0
+map_distance_elem	defb	0
+map_condition		defw	0
+map_x_elem		defb	0
+map_y_elem		defb	0
+map_value_elem		defb	0
+map_distance_curr	defb	0
+map_addr_source		defw	0
+
+table_condition		defb	#cd,#cc,#c4,#dc,#d4
+
+
+
+; ===== _sound =====
+
+sound_loop		defb	0		; количество повторений
+sound_freq		defb	0		; частота
+sound_time		defb	0		; длительность звучания
+
+
+; ===== _mirror =====
+
+mirror_max_x		defb	0

@@ -1,0 +1,4 @@
+program Game;
+
+begin
+end.
