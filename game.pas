@@ -15,6 +15,7 @@ var
 	ballY: Byte;
 	ballDX: Byte;
 	ballDY: Byte;
+	ballTics: Byte;
 	ballCounter: Byte;
 
 	paddleX: Byte;
@@ -65,30 +66,36 @@ end;
 
 procedure Reset;
 begin
-	Color($47);
-	ClrScr;
+	
 
 	ballX := ScreenW / 2;
 	ballY := ScreenH - 1;
 	ballDX := 1;
 	ballDY := $ff;
-	ballCounter := BallTimer;
+	ballTics := BallTimer;
 
 	paddleW := PaddleStartW;
 	paddleX := (ScreenW - PaddleStartW) / 2;
-
-	colorCounter := $4f;
-	for i := 1 to BlockRowCount do begin
-		for j := 1 to BlockColCount do begin
-			blocks[j, i] := 1;
-			Color(colorCounter);
-			DrawBlock;
-			if colorCounter = $7f then
-				colorCounter := $4f
-			else
-				colorCounter := colorCounter + $08;
+	if 	ballCounter = 0 then begin
+		ballCounter := 5;
+		Color($47);
+		ClrScr;
+	
+		colorCounter := $4f;
+		for i := 1 to BlockRowCount do begin
+			for j := 1 to BlockColCount do begin
+				blocks[j, i] := 1;
+				Color(colorCounter);
+				DrawBlock;
+				if colorCounter = $7f then
+					colorCounter := $4f
+				else
+					colorCounter := colorCounter + $08;
+			end;
 		end;
-	end;
+	end else
+		ballCounter := ballCounter - 1;
+	
 
 	DrawBall;
 	DrawPaddle;
@@ -96,8 +103,10 @@ end;
 
 procedure GameOver;
 begin
-	Color($57);
-	ClrScr;
+	if ballCounter = 0 then begin
+		Color($57);
+		ClrScr;
+	end;
 	repeat
 		ReadKey(key1, key2);
 	until key1 <> 0;
@@ -195,9 +204,9 @@ begin
 	while 1 do begin
 		Asm(Halt);
 
-		ballCounter := ballCounter - 1;
-		if ballCounter = 0 then begin
-			ballCounter := BallTimer;
+		ballTics := ballTics - 1;
+		if ballTics = 0 then begin
+			ballTics := BallTimer;
 			MoveBall;
 		end;
 
